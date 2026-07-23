@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#6d1725">
+  <title><%= title %> | CHC</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <% if (typeof pageStyles !== 'undefined' && pageStyles) { %>
+    <link rel="stylesheet" href="<%= pageStyles %>">
+  <% } %>
+</head>
+<body class="<%= (typeof hideSiteChrome !== 'undefined' && hideSiteChrome) ? 'credential-standalone-body' : '' %>">
+  <% if (!(typeof hideSiteChrome !== 'undefined' && hideSiteChrome)) { %>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/" aria-label="Inicio Credenciales Digitales QR CHC">
+        <span class="brand-logo-panel"><img src="/img/logo-chc.png" alt="Cremería Hermanos Coronel" class="brand-logo"></span>
+        <span>Credenciales Digitales QR</span>
+      </a>
+      <nav class="main-nav" aria-label="Navegación principal">
+        <% if (isAuthenticated) { %>
+          <a class="nav-link <%= currentPath === '/admin' ? 'active' : '' %>" href="/admin">Panel</a>
+          <a class="nav-link <%= currentPath.startsWith('/admin/empleados') ? 'active' : '' %>" href="/admin/empleados">Empleados</a>
+          <a class="nav-link" href="/admin/logout">Salir</a>
+        <% } else { %>
+          <a class="nav-link" href="/admin/login">Administración</a>
+        <% } %>
+      </nav>
+    </div>
+  </header>
+  <% } %>
+
+  <main class="page-main <%= (typeof hideSiteChrome !== 'undefined' && hideSiteChrome) ? 'page-main--credential-standalone' : '' %>">
+    <div class="container <%= (typeof hideSiteChrome !== 'undefined' && hideSiteChrome) ? 'container--credential-standalone' : '' %>">
+      <% if (flash) { %>
+        <div class="alert alert-<%= flash.type %>" role="alert"><%= flash.message %></div>
+      <% } %>
+      <%- body %>
+    </div>
+  </main>
+
+  <% if (!(typeof hideSiteChrome !== 'undefined' && hideSiteChrome)) { %>
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Cremería Hermanos Coronel</span>
+      <span>Credenciales Digitales QR CHC</span>
+    </div>
+  </footer>
+  <% } %>
+</body>
+</html>

@@ -1,0 +1,383 @@
+## v1.0.33 - credencial en vista limpia
+
+- La credencial pública se muestra sin el encabezado ni el pie de página del sistema.
+- Al abrirla desde el detalle de un empleado en Administración, se abre en una pestaña o ventana nueva.
+- El panel administrativo conserva su encabezado, navegación y pie de página.
+
+## v1.0.32 - foto pegada al aro dorado
+
+Se eliminó el espacio blanco entre la fotografía y el aro dorado del marco de la foto.
+- En la vista HTML/CSS ya no existe el aro blanco interior.
+- En la generación PNG también se retiró el aro blanco interior y la foto ahora toca visualmente el borde dorado.
+
+# Ajuste v1.0.31
+
+- La fotografía se bajó y redujo ligeramente para dejar visible la palabra **Cremería**.
+- La franja diagonal dorada y el borde inferior de la zona vino ahora comparten exactamente la misma pendiente, sin dejar una cuña oscura por debajo.
+- Los mismos cambios se aplicaron a la credencial PNG descargable.
+
+# v1.0.30 — credencial reconstruida en HTML/CSS
+
+Esta versión deja de usar una credencial completa como imagen de fondo. La estructura de la tarjeta, la diagonal, el marco de la foto, los campos, los iconos y el panel QR se construyen con HTML/CSS. Para respetar las tipografías corporativas se conservan únicamente dos artes limpias: el logotipo superior y el lema inferior.
+
+## Archivos principales del diseño
+
+- `views/credential.ejs`: estructura HTML de la credencial.
+- `public/css/credential-v30.css`: posiciones, tamaños, colores y responsividad.
+- `public/img/logo-corporativo-v30.png`: arte corporativo superior.
+- `public/img/frase-corporativa-v30.png`: lema corporativo inferior.
+- `services/credentialImageService.js`: genera el PNG descargable con el mismo diseño.
+- `controllers/publicController.js`: carga los recursos y datos dinámicos.
+
+## Ajustes manuales rápidos
+
+En `public/css/credential-v30.css`:
+
+- `.chc30-logo-art`: posición y tamaño del logotipo.
+- `.chc30-photo-frame`: posición y tamaño del marco de la foto.
+- `.chc30-photo`: `object-position` para reencuadrar la cara sin deformar la imagen.
+- `.chc30-fields`: posición general de los campos.
+- `.chc30-qr-panel`: posición y tamaño del QR.
+- `.chc30-footer`: tamaño de la franja inferior.
+
+En `services/credentialImageService.js`, los valores equivalentes están en los elementos SVG del logotipo, la foto, los campos y el QR.
+
+# Credenciales Digitales QR CHC
+
+Aplicación web independiente para consultar identificaciones digitales de empleados de Cremería Hermanos Coronel mediante códigos QR.
+
+La aplicación consulta la tabla existente `personal`, pero **no la modifica**. La credencial muestra el NSS junto con los datos laborales del empleado. RFC, CURP, correo y fecha de nacimiento no se muestran.
+
+## Requisitos
+
+- Node.js 20 o superior.
+- MySQL 8.
+- Una base de datos que contenga la tabla `personal` y los campos indicados en el requerimiento.
+- MySQL Workbench, consola MySQL u otra herramienta para ejecutar el script SQL.
+
+## 1. Instalar dependencias
+
+Descomprime el proyecto, abre una terminal dentro de la carpeta y ejecuta:
+
+```bash
+npm install
+```
+
+## 2. Crear tablas, vistas y procedimientos
+
+### Base local `sistema_gestion`
+
+1. Abre MySQL Workbench.
+2. Conéctate a tu servidor local.
+3. Abre el archivo `database/schema_local.sql`.
+4. Ejecuta todo el script.
+
+El archivo inicia con:
+
+```sql
+USE sistema_gestion;
+```
+
+### Otra base de datos
+
+Selecciona primero la base correcta y ejecuta `database/schema.sql`, o cambia la línea `USE` de `schema_local.sql`.
+
+El script crea:
+
+- `employee_qr_tokens`
+- `employee_photos`
+- `employee_qr_access_logs`
+- `vw_qr_employees_active`
+- `vw_qr_public_card`
+- `sp_generate_missing_employee_qr_tokens`
+- `sp_deactivate_qr_for_inactive_employees`
+
+No crea, altera ni elimina la tabla `personal`.
+
+
+## Actualización limpia de collations para instalaciones anteriores
+
+Si ya ejecutaste las versiones 1.0.1 o 1.0.2, usa exclusivamente:
+
+```text
+database/update_v1.0.6_active_department.sql
+```
+
+Pasos:
+
+1. Conserva tu archivo `.env`.
+2. Sustituye los archivos del proyecto por los de esta versión 1.0.6.
+3. Ejecuta completo `database/update_v1.0.6_active_department.sql` en MySQL Workbench.
+4. Reinicia la aplicación con `npm run dev`.
+
+La actualización v1.0.6 corrige `employee_qr_access_logs.access_result` y aplica la regla real de CHC: un empleado está activo cuando `department_name` es distinto de `Baja`. `fecha_baja` se conserva como historial, pero no determina la vigencia. También conserva compatibilidad con tokens heredados que tengan mayúsculas, UUID u otro formato URL-safe.
+
+### Actualización v1.0.9: descarga individual y paquete de QR
+
+La versión 1.0.9 corrige la descarga individual cuando `personal.employee_number` es numérico. Cada archivo se descarga con el formato `NUMERO_EMPLEADO_QR.png`. En la pantalla **Empleados activos** se agregó un botón **Descargar QR** antes de **Ver detalle**, además del botón **Descargar paquete QR**, que genera los QR faltantes y descarga un ZIP con todos los QR de empleados activos.
+
+No requiere cambios adicionales en la base de datos.
+
+### Actualización v1.0.8: mostrar NSS
+
+Esta versión consulta `personal.nss` y lo muestra tanto en el detalle administrativo como en la credencial pública. También elimina la leyenda anterior de datos no consultados. Para actualizar las vistas de una instalación existente puedes ejecutar `database/update_v1.0.8_show_nss.sql`; la aplicación funciona directamente con la columna `personal.nss`.
+
+No modifica `personal`, no elimina fotografías, no elimina tokens y no genera QR automáticamente. Los QR faltantes se generan desde el botón del panel administrativo.
+
+## 3. Configurar `.env`
+
+Copia `.env.example` con el nombre `.env`:
+
+En Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+En CMD:
+
+```cmd
+copy .env.example .env
+```
+
+Edita únicamente los valores necesarios:
+
+```env
+PORT=3000
+APP_URL=http://localhost:3000
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=sistema_gestion
+
+ADMIN_USER=admin
+ADMIN_PASSWORD=admin123
+SESSION_SECRET=cambiar_esto_por_una_clave_segura
+```
+
+Usa una contraseña administrativa y un `SESSION_SECRET` seguros antes de publicar la aplicación.
+
+## 4. Ejecutar en local
+
+Modo desarrollo:
+
+```bash
+npm run dev
+```
+
+Modo normal:
+
+```bash
+npm start
+```
+
+Abre:
+
+```text
+http://localhost:3000
+```
+
+El servidor muestra en la consola si la conexión con MySQL fue correcta.
+
+## 5. Entrar al panel administrativo
+
+Abre:
+
+```text
+http://localhost:3000/admin/login
+```
+
+Usa `ADMIN_USER` y `ADMIN_PASSWORD` del archivo `.env`.
+
+Todas las rutas administrativas están protegidas mediante sesión. Los formularios administrativos también incluyen validación CSRF.
+
+## 6. Generar los QR iniciales
+
+Desde el panel administrativo:
+
+1. Entra a **Panel**.
+2. Presiona **Generar QR faltantes**.
+3. El procedimiento genera un token aleatorio de 64 caracteres para cada empleado activo sin QR.
+
+También puedes entrar al detalle de un empleado y generar su QR individualmente.
+
+Un QR contiene únicamente una URL similar a:
+
+```text
+http://localhost:3000/e/0123456789abcdef...
+```
+
+El token no contiene RFC, CURP, NSS, nombre ni número de empleado; únicamente sirve para consultar los datos vigentes desde el sistema.
+
+## 7. Subir fotografías
+
+1. Abre **Empleados**.
+2. Selecciona **Ver detalle**.
+3. Elige una foto JPG, JPEG o PNG de máximo 5 MB.
+4. Presiona **Guardar fotografía**.
+
+La aplicación valida la imagen con `sharp`, corrige la orientación y la convierte a JPG de 300×400 px con calidad aproximada de 80%.
+
+La foto normalizada se guarda en `employee_photos.photo_blob`. La tabla `personal` permanece sin cambios.
+
+Si un empleado no tiene foto, se muestra la imagen placeholder incluida en `public/img/photo-placeholder.png`.
+
+## 8. Probar una credencial pública
+
+En el detalle del empleado:
+
+1. Genera su QR si todavía no existe.
+2. Presiona **Abrir credencial** o escanea el QR.
+3. Comprueba que aparezcan foto, nombre, número, puesto, departamento, fecha de ingreso y estatus activo.
+4. Presiona **Descargar PNG** para obtener el QR como imagen con el nombre `NUMERO_EMPLEADO_QR.png`.
+
+También puedes descargar un QR directamente desde la lista **Empleados activos** o usar **Descargar paquete QR** para obtener un archivo ZIP con todos los QR activos.
+
+Cuando `department_name` es `Baja` (sin importar mayúsculas, minúsculas o espacios), la ruta pública deja de mostrar información y responde:
+
+- “Identificación no vigente”
+- “Empleado no encontrado o dado de baja.”
+
+Ejecuta **Desactivar QR de bajas** para marcar esos tokens como revocados. La aplicación consulta el departamento en cada acceso, por lo que la identificación se bloquea desde el momento en que el empleado pasa a `Baja`.
+
+## 9. Desplegar posteriormente en Railway
+
+1. Sube el proyecto a un repositorio Git.
+2. Crea un servicio Node.js desde el repositorio.
+3. Configura las variables de `.env` en la sección de variables del servicio.
+4. Cambia `APP_URL` por la URL pública HTTPS asignada al servicio.
+5. Configura `NODE_ENV=production`.
+6. Verifica que el servidor MySQL permita conexiones desde el servicio y que el usuario tenga permisos de lectura sobre `personal` y permisos sobre las tres tablas nuevas, vistas y procedimientos.
+7. Usa `npm start` como comando de inicio.
+8. Comprueba el endpoint `/health`.
+
+Para una publicación con varias instancias o reinicios frecuentes, conviene sustituir el almacén de sesión en memoria por uno persistente compatible con Express Session.
+
+## Rutas principales
+
+### Públicas
+
+- `GET /`
+- `GET /e/:token`
+- `GET /e/:token/foto`
+- `GET /e/:token/credencial.png`
+- `GET /health`
+
+### Administrativas
+
+- `GET /admin/login`
+- `POST /admin/login`
+- `GET /admin/logout`
+- `GET /admin`
+- `GET /admin/empleados`
+- `GET /admin/empleados/:employee_number`
+- `GET /admin/empleados/:employee_number/foto`
+- `POST /admin/empleados/:employee_number/foto`
+- `POST /admin/generar-qr`
+- `POST /admin/desactivar-bajas`
+- `GET /admin/empleados/:employee_number/qr.png`
+- `POST /admin/empleados/descargar-qrs`
+
+## Seguridad incluida
+
+- Consultas preparadas con `mysql2`.
+- Tokens aleatorios de 32 bytes, representados como 64 caracteres hexadecimales.
+- El número de empleado no se usa como identificador de la URL pública.
+- Validación estricta de tokens y números de empleado.
+- Restricción de imágenes a JPG/JPEG/PNG y máximo 5 MB.
+- Normalización real de la imagen con `sharp`.
+- Cookies de sesión `httpOnly` y `sameSite=lax`.
+- Formularios protegidos con token CSRF.
+- Encabezados básicos de seguridad y política CSP.
+- Registro de accesos válidos e inválidos en `employee_qr_access_logs`.
+- Ninguna operación de escritura sobre `personal`.
+
+## Solución de problemas de npm
+
+Si `npm install` termina con el mensaje **Exit handler never called**, cierre VS Code, vuelva a abrir una terminal PowerShell como usuario normal y ejecute dentro del proyecto:
+
+```powershell
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
+npm cache verify
+npm config set registry https://registry.npmjs.org/
+npm install
+```
+
+También confirme las versiones instaladas:
+
+```powershell
+node -v
+npm -v
+```
+
+Se requiere Node.js 20.9 o posterior. Se recomienda usar una versión LTS de Node.js.
+
+
+## Corrección v1.0.6: vigencia por departamento Baja
+
+Para una instalación que ya tiene tablas y QR, ejecuta una sola vez:
+
+```text
+database/update_v1.0.6_active_department.sql
+```
+
+Después sustituye los archivos de la aplicación por los de esta versión y conserva tu `.env`. La actualización:
+
+- No modifica `personal`.
+- No cambia los tokens impresos o descargados.
+- Reactiva únicamente QR desactivados por la regla anterior de `fecha_baja`, siempre que el empleado no esté en `Baja`.
+- No reactiva QR revocados manualmente.
+- Corrige `access_result` para evitar truncamientos.
+- Actualiza solamente las dos vistas y los dos procedimientos del módulo QR.
+
+La aplicación también detecta columnas `access_result` heredadas tipo `ENUM` y utiliza un valor compatible, de modo que un fallo de bitácora nunca bloquea una credencial válida.
+
+## Actualización 1.0.7
+
+- Se sustituyó el logotipo provisional por el logotipo oficial de Cremería Hermanos Coronel.
+- El logotipo se muestra completo, sin deformación, en la credencial pública y en el encabezado del sistema.
+
+
+## Correcciones de la versión 1.0.10
+
+- Corrige la carga de fotografías con formularios `multipart/form-data`.
+- Multer procesa primero el archivo y los campos del formulario; después se valida el token CSRF.
+- Evita el mensaje incorrecto «La sesión del formulario expiró» al guardar una fotografía válida.
+
+## Actualización 1.0.11: QR, fecha y descarga de la credencial
+
+- Se eliminó la leyenda inferior «Esta identificación es válida únicamente…».
+- La credencial pública ahora muestra su propio código QR de verificación.
+- Se muestra la fecha y hora de consulta usando la zona horaria de México.
+- Se agregó el botón **Descargar credencial PNG**. El archivo se nombra `NUMERO_EMPLEADO_CREDENCIAL_QR.png`.
+- Se agregó el botón **Imprimir o guardar PDF**, que abre el cuadro de impresión del navegador.
+- La versión para impresión oculta encabezado, pie de página y botones.
+- No requiere cambios en MySQL y conserva los QR y fotografías existentes.
+
+Nueva ruta pública:
+
+```text
+GET /e/:token/credencial.png
+```
+
+
+## Ajuste manual fino de la foto
+
+### Vista web (pantalla)
+Edita `public/css/styles.css` en el bloque `v1.0.24+`:
+- `--photo-left`: mueve la foto a izquierda/derecha.
+- `--photo-top`: mueve la foto arriba/abajo.
+- `--photo-width`: hace la foto más ancha o más chica.
+- `--photo-height`: hace la foto más alta o más chica.
+- `--photo-pos-x` y `--photo-pos-y`: reencuadran la foto dentro del área sin deformarla.
+
+### PNG descargado
+Edita `services/credentialImageService.js`:
+- `PHOTO_X`, `PHOTO_Y`
+- `PHOTO_WIDTH`, `PHOTO_HEIGHT`
+- `PHOTO_POSITION`
+
+Sugerencia: mueve de 2 en 2 px en PNG y de 0.1% en 0.1% en CSS.

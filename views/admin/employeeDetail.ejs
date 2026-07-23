@@ -1,0 +1,60 @@
+<section class="page-heading">
+  <div>
+    <a class="back-link" href="/admin/empleados">← Volver a empleados</a>
+    <p class="eyebrow">Empleado <%= employee.employee_number %></p>
+    <h1><%= employee.full_name || 'Nombre no disponible' %></h1>
+    <p class="muted"><%= employee.puesto || 'Sin puesto' %> · <%= employee.department_name || 'Sin departamento' %></p>
+  </div>
+  <span class="pill <%= employeeIsActive ? 'pill-success' : 'pill-danger' %>"><%= employeeIsActive ? 'ACTIVO' : 'BAJA' %></span>
+</section>
+
+<div class="detail-grid">
+  <section class="panel-card">
+    <h2>Fotografía</h2>
+    <div class="admin-photo-wrap">
+      <img class="admin-photo" src="/admin/empleados/<%= encodeURIComponent(employee.employee_number) %>/foto" alt="Foto de <%= employee.full_name || 'empleado' %>">
+    </div>
+    <form method="post" action="/admin/empleados/<%= encodeURIComponent(employee.employee_number) %>/foto" enctype="multipart/form-data">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label class="form-label" for="photo">Subir o reemplazar foto</label>
+      <input class="form-control file-input" id="photo" name="photo" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" required>
+      <p class="help-text">JPG, JPEG o PNG, máximo 5 MB. Se convertirá automáticamente a JPG de 300×400 px.</p>
+      <button class="button button-primary button-block" type="submit">Guardar fotografía</button>
+    </form>
+  </section>
+
+  <section class="panel-card">
+    <h2>Datos públicos</h2>
+    <dl class="definition-list">
+      <div><dt>Número de empleado</dt><dd><%= employee.employee_number %></dd></div>
+      <div><dt>NSS</dt><dd><%= employee.nss || 'No disponible' %></dd></div>
+      <div><dt>Puesto</dt><dd><%= employee.puesto || 'No disponible' %></dd></div>
+      <div><dt>Departamento</dt><dd><%= employee.department_name || 'No disponible' %></dd></div>
+      <div><dt>Fecha de ingreso</dt><dd><%= formatDate(employee.start_date) %></dd></div>
+      <div><dt>Estatus</dt><dd><%= employeeIsActive ? 'ACTIVO' : 'BAJA' %></dd></div>
+    </dl>
+  </section>
+
+  <section class="panel-card qr-panel">
+    <h2>Código QR</h2>
+    <% if (qrRecord) { %>
+      <img class="qr-preview" src="<%= qrDataUrl %>" alt="Código QR de la credencial">
+      <label class="form-label" for="public-url">Enlace público</label>
+      <input class="form-control mono" id="public-url" value="<%= publicUrl %>" readonly>
+      <div class="button-row">
+        <a class="button button-primary" href="<%= publicUrl %>" target="_blank" rel="noopener noreferrer">Abrir credencial en nueva ventana</a>
+        <a class="button button-secondary" href="/admin/empleados/<%= encodeURIComponent(employee.employee_number) %>/qr.png">Descargar PNG</a>
+      </div>
+    <% } else if (employeeIsActive) { %>
+      <div class="empty-state">Este empleado todavía no tiene un QR activo.</div>
+      <form method="post" action="/admin/generar-qr">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="mode" value="individual">
+        <input type="hidden" name="employee_number" value="<%= employee.employee_number %>">
+        <button class="button button-primary button-block" type="submit">Generar QR individual</button>
+      </form>
+    <% } else { %>
+      <div class="empty-state">No se puede generar un QR para un empleado ubicado en el departamento Baja.</div>
+    <% } %>
+  </section>
+</div>

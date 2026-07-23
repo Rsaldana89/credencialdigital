@@ -1,0 +1,73 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Administración</p>
+    <h1>Empleados activos</h1>
+    <p class="muted">Se muestran hasta 1,000 resultados activos de la tabla personal.</p>
+  </div>
+  <div class="page-actions">
+    <form method="post" action="/admin/generar-qr">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="mode" value="missing">
+      <button class="button button-secondary" type="submit">Generar QR faltantes</button>
+    </form>
+    <form method="post" action="/admin/empleados/descargar-qrs">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-primary" type="submit">Descargar paquete QR</button>
+    </form>
+  </div>
+</section>
+
+<form class="search-bar" method="get" action="/admin/empleados">
+  <label class="sr-only" for="q">Buscar empleado</label>
+  <input class="form-control" id="q" name="q" value="<%= search %>" maxlength="100" placeholder="Nombre, número, puesto o departamento">
+  <button class="button button-secondary" type="submit">Buscar</button>
+  <% if (search) { %><a class="button button-ghost" href="/admin/empleados">Limpiar</a><% } %>
+</form>
+
+<div class="table-card">
+  <div class="table-meta"><strong><%= employees.length %></strong> resultado(s)</div>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Empleado</th>
+          <th>Puesto / Departamento</th>
+          <th>Ingreso</th>
+          <th>QR</th>
+          <th>Foto</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!employees.length) { %>
+          <tr><td colspan="6" class="empty-cell">No se encontraron empleados activos.</td></tr>
+        <% } %>
+        <% employees.forEach((employee) => { %>
+          <tr>
+            <td>
+              <strong><%= employee.full_name || 'Nombre no disponible' %></strong>
+              <span class="table-secondary">No. <%= employee.employee_number %></span>
+            </td>
+            <td>
+              <%= employee.puesto || 'Sin puesto' %>
+              <span class="table-secondary"><%= employee.department_name || 'Sin departamento' %></span>
+            </td>
+            <td><%= formatDate(employee.start_date) %></td>
+            <td><span class="pill <%= employee.has_qr ? 'pill-success' : 'pill-muted' %>"><%= employee.has_qr ? 'Generado' : 'Pendiente' %></span></td>
+            <td><span class="pill <%= employee.has_photo ? 'pill-success' : 'pill-muted' %>"><%= employee.has_photo ? 'Cargada' : 'Sin foto' %></span></td>
+            <td>
+              <div class="table-actions">
+                <% if (employee.has_qr) { %>
+                  <a class="button button-small button-primary" href="/admin/empleados/<%= encodeURIComponent(employee.employee_number) %>/qr.png">Descargar QR</a>
+                <% } else { %>
+                  <span class="button button-small button-disabled" aria-disabled="true">QR pendiente</span>
+                <% } %>
+                <a class="button button-small button-secondary" href="/admin/empleados/<%= encodeURIComponent(employee.employee_number) %>">Ver detalle</a>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,48 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Administración</p>
+    <h1>Panel de credenciales</h1>
+    <p class="muted">Resumen del estado actual de empleados, fotos y códigos QR.</p>
+  </div>
+  <a class="button button-primary" href="/admin/empleados">Administrar empleados</a>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card">
+    <span>Empleados activos</span>
+    <strong><%= stats.active_employees || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Empleados con QR</span>
+    <strong><%= stats.employees_with_qr || 0 %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Empleados con foto</span>
+    <strong><%= stats.employees_with_photo || 0 %></strong>
+  </article>
+  <article class="stat-card stat-card-warning">
+    <span>QR pendientes de desactivar</span>
+    <strong><%= stats.qr_pending_deactivation || 0 %></strong>
+  </article>
+</section>
+
+<section class="admin-actions">
+  <article class="action-card">
+    <h2>Generación masiva</h2>
+    <p>Genera un token QR para cada empleado activo que todavía no tenga uno.</p>
+    <form method="post" action="/admin/generar-qr">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="mode" value="missing">
+      <button class="button button-primary" type="submit">Generar QR faltantes</button>
+    </form>
+  </article>
+
+  <article class="action-card">
+    <h2>Desactivar bajas</h2>
+    <p>Revoca los QR activos de empleados ubicados en el departamento Baja o que ya no existen en personal.</p>
+    <form method="post" action="/admin/desactivar-bajas">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-danger" type="submit">Desactivar QR de bajas</button>
+    </form>
+  </article>
+</section>

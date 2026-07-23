@@ -1,9 +1,11 @@
 const crypto = require('crypto');
+const fs = require('fs/promises');
 const path = require('path');
 const archiver = require('archiver');
 const employeeService = require('../services/employeeService');
 const photoService = require('../services/photoService');
 const qrService = require('../services/qrService');
+const bulkPhotoImportService = require('../services/bulkPhotoImportService');
 
 function formatDate(value) {
   if (!value) return 'No disponible';
@@ -200,6 +202,85 @@ async function uploadPhoto(req, res, next) {
   }
 }
 
+function bulkPhotoImportForm(req, res) {
+  const limits = bulkPhotoImportService.getLimits();
+  return res.render('admin/bulkPhotos', {
+    title: 'Importación masiva de fotografías',
+    limits
+  });
+}
+
+async function bulkPhotoImport(req, res, next) {
+  const temporaryPath = req.file?.path;
+  try {
+    if (!req.file) {
+      setFlash(req, 'danger', 'Selecciona un archivo ZIP con las fotografías.');
+      return res.redirect('/admin/fotografias/importar');
+    }
+
+    const report = await bulkPhotoImportService.processPhotoZip({
+      zipPath: req.file.path,
+      mode: req.body.mode,
+      uploadedBy: req.session.adminUser,
+      originalFilename: req.file.originalname
+    });
+    const reportToken = await bulkPhotoImportService.storeReport(report);
+    return res.redirect(`/admin/fotografias/importar/resultados/${reportToken}`);
+  } catch (error) {
+    const friendlyErrors = new Set([
+      'ZIP_INVALID',
+      'ZIP_TRUNCATED',
+      'ZIP_MULTIDISK_UNSUPPORTED',
+      'ZIP64_UNSUPPORTED',
+      'ZIP_TOO_MANY_ENTRIES',
+      'ZIP_UNCOMPRESSED_TOO_LARGE',
+      'ZIP_EMPTY',
+      'TOO_MANY_IMAGES'
+    ]);
+
+    if (friendlyErrors.has(error.code)) {
+      setFlash(req, 'danger', error.message);
+      return res.redirect('/admin/fotografias/importar');
+    }
+    return next(error);
+  } finally {
+    if (temporaryPath) {
+      await fs.unlink(temporaryPath).catch(() => {});
+    }
+  }
+}
+
+function bulkPhotoImportResult(req, res) {
+  const stored = bulkPhotoImportService.getStoredReport(req.params.token);
+  if (!stored) {
+    return res.status(404).render('invalid', {
+      title: 'Reporte no disponible',
+      heading: 'Reporte no disponible',
+      message: 'El reporte expiró o el identificador no es válido. Realiza nuevamente la importación.'
+    });
+  }
+
+  return res.render('admin/bulkPhotoResult', {
+    title: 'Resultado de importación',
+    report: stored.report,
+    reportToken: req.params.token
+  });
+}
+
+function downloadBulkPhotoReport(req, res) {
+  const stored = bulkPhotoImportService.getStoredReport(req.params.token);
+  if (!stored) {
+    return res.status(404).render('invalid', {
+      title: 'Reporte no disponible',
+      heading: 'Reporte no disponible',
+      message: 'El reporte expiró o ya no está disponible.'
+    });
+  }
+
+  const dateStamp = new Date(stored.report.finishedAt).toISOString().slice(0, 10);
+  return res.download(stored.csvPath, `REPORTE_FOTOS_${dateStamp}.csv`);
+}
+
 async function generateQr(req, res, next) {
   try {
     const mode = String(req.body.mode || 'individual');
@@ -336,6 +417,10 @@ module.exports = {
   employeeDetail,
   adminEmployeePhoto,
   uploadPhoto,
+  bulkPhotoImportForm,
+  bulkPhotoImport,
+  bulkPhotoImportResult,
+  downloadBulkPhotoReport,
   generateQr,
   deactivateInactive,
   downloadQr,

@@ -1,0 +1,78 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Administración</p>
+    <h1>Resultado de importación</h1>
+    <p class="muted">
+      Archivo: <strong><%= report.originalFilename %></strong> ·
+      Modo: <strong><%= report.mode === 'replace' ? 'Reemplazar existentes' : 'Omitir existentes' %></strong>
+    </p>
+  </div>
+  <div class="page-actions">
+    <a class="button button-secondary" href="/admin/fotografias/importar">Importar otro ZIP</a>
+    <a class="button button-primary" href="/admin/fotografias/importar/reportes/<%= reportToken %>.csv">Descargar reporte CSV</a>
+  </div>
+</section>
+
+<section class="bulk-summary-grid">
+  <article class="stat-card">
+    <span>Procesados</span>
+    <strong><%= report.summary.processedFiles %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Fotografías nuevas</span>
+    <strong><%= report.summary.imported %></strong>
+  </article>
+  <article class="stat-card">
+    <span>Reemplazadas</span>
+    <strong><%= report.summary.replaced %></strong>
+  </article>
+  <article class="stat-card stat-card-warning">
+    <span>Con observaciones</span>
+    <strong><%= report.summary.errors + report.summary.skippedExisting %></strong>
+  </article>
+</section>
+
+<div class="bulk-report-meta">
+  <span>Elementos en el ZIP: <strong><%= report.summary.archiveEntries %></strong></span>
+  <span>Ignorados automáticamente: <strong><%= report.summary.ignoredEntries %></strong></span>
+  <span>Omitidos por tener foto: <strong><%= report.summary.skippedExisting %></strong></span>
+  <span>Empleados no encontrados: <strong><%= report.summary.employeeNotFound %></strong></span>
+  <span>Duración: <strong><%= Math.max(1, Math.round(report.durationMs / 1000)) %> s</strong></span>
+</div>
+
+<div class="table-card">
+  <div class="table-meta"><strong><%= report.results.length %></strong> resultado(s)</div>
+  <div class="table-responsive">
+    <table class="bulk-result-table">
+      <thead>
+        <tr>
+          <th>Archivo</th>
+          <th>Empleado</th>
+          <th>Resultado</th>
+          <th>Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% report.results.forEach((item) => { %>
+          <% const success = item.status === 'IMPORTED' || item.status === 'REPLACED'; %>
+          <% const skipped = item.status === 'SKIPPED_EXISTING'; %>
+          <tr>
+            <td><code><%= item.filename %></code></td>
+            <td>
+              <strong><%= item.employeeNumber || 'No identificado' %></strong>
+              <% if (item.employeeName) { %><span class="table-secondary"><%= item.employeeName %></span><% } %>
+            </td>
+            <td>
+              <span class="pill <%= success ? 'pill-success' : (skipped ? 'pill-muted' : 'pill-danger') %>">
+                <%= item.statusLabel %>
+              </span>
+            </td>
+            <td><%= item.detail %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p class="help-text bulk-report-expiration">El reporte CSV es temporal. Descárgalo antes de que expire la sesión del reporte.</p>

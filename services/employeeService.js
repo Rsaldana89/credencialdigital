@@ -419,6 +419,26 @@ async function getDashboardStats() {
   return rows[0];
 }
 
+async function listEmployeesForPhotoImport() {
+  const [rows] = await pool.query(
+    `SELECT
+       p.employee_number AS employee_number,
+       p.full_name,
+       p.department_name,
+       EXISTS(
+         SELECT 1
+         FROM employee_photos ep
+         WHERE ep.employee_number = p.employee_number
+       ) AS has_photo
+     FROM personal p
+     WHERE p.employee_number IS NOT NULL
+       AND CHAR_LENGTH(TRIM(p.employee_number)) > 0
+     ORDER BY p.employee_number`
+  );
+
+  return rows;
+}
+
 module.exports = {
   normalizeEmployeeNumber,
   normalizeToken,
@@ -429,6 +449,7 @@ module.exports = {
   getPhotoByEmployeeNumber,
   listActiveEmployees,
   listActiveEmployeesWithQr,
+  listEmployeesForPhotoImport,
   getEmployeeByNumber,
   getActiveQrByEmployee,
   generateQrForEmployee,

@@ -5,6 +5,7 @@
     <p class="muted">Se muestran hasta 1,000 resultados activos de la tabla personal.</p>
   </div>
   <div class="page-actions">
+    <a class="button button-secondary" href="/admin/fotografias/importar">Importar fotografías</a>
     <form method="post" action="/admin/generar-qr">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <input type="hidden" name="mode" value="missing">

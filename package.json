@@ -1,13 +1,13 @@
 {
   "name": "credenciales-qr-chc",
-  "version": "1.0.31",
+  "version": "1.0.34",
   "description": "Aplicación web de credenciales digitales QR para Cremería Hermanos Coronel.",
   "main": "server.js",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check services/employeeService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check public/js/credential.js"
+    "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check services/employeeService.js && node --check services/zipReader.js && node --check services/bulkPhotoImportService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check public/js/credential.js"
   },
   "engines": {
     "node": ">=20.9.0"

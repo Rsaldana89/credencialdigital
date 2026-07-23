@@ -381,3 +381,50 @@ Edita `services/credentialImageService.js`:
 - `PHOTO_POSITION`
 
 Sugerencia: mueve de 2 en 2 px en PNG y de 0.1% en 0.1% en CSS.
+
+## v1.0.34 — Importación masiva de fotografías
+
+Se agregó al panel administrativo el módulo:
+
+```text
+Administración → Fotografías → Importación masiva
+```
+
+### Preparación del ZIP
+
+Cada imagen debe llamarse exactamente como el número de empleado:
+
+```text
+10733.jpg
+4886.jpeg
+11815.png
+```
+
+Formatos permitidos: JPG, JPEG y PNG.
+
+El sistema:
+
+1. valida que el número exista en `personal`;
+2. procesa una fotografía a la vez;
+3. corrige la orientación;
+4. normaliza a 300 × 400 px en JPG;
+5. inserta o reemplaza en `employee_photos`;
+6. elimina el ZIP temporal;
+7. genera un reporte visual y un CSV descargable.
+
+Puede elegirse entre:
+
+- reemplazar fotografías existentes;
+- omitir empleados que ya tienen fotografía.
+
+Para cargas grandes se recomiendan lotes de aproximadamente 200 fotografías.
+
+### Seguridad y límites
+
+La lectura del ZIP se realiza sin extraer archivos al sistema de carpetas. Se rechazan ZIP cifrados, ZIP64, archivos dañados, métodos de compresión no compatibles, imágenes demasiado grandes y lotes que excedan los límites configurados.
+
+Las variables opcionales están documentadas en `.env.example`.
+
+### Base de datos y QR
+
+Esta versión no requiere cambios adicionales en la base de datos y no modifica `employee_qr_tokens`. La importación masiva sólo consulta `personal` y escribe en `employee_photos`.

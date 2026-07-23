@@ -1,0 +1,68 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Administración</p>
+    <h1>Importación masiva de fotografías</h1>
+    <p class="muted">Carga un archivo ZIP con fotografías nombradas mediante el número de empleado.</p>
+  </div>
+  <a class="button button-secondary" href="/admin/empleados">Volver a empleados</a>
+</section>
+
+<section class="bulk-photo-grid">
+  <article class="panel-card bulk-photo-instructions">
+    <h2>Cómo preparar el ZIP</h2>
+    <p>Cada archivo debe llamarse exactamente con el número de empleado registrado en <code>personal.employee_number</code>.</p>
+    <div class="filename-examples" aria-label="Ejemplos de nombres válidos">
+      <code>10733.jpg</code>
+      <code>4886.jpeg</code>
+      <code>11815.png</code>
+    </div>
+    <ul class="compact-list">
+      <li>Formatos admitidos: JPG, JPEG y PNG.</li>
+      <li>Máximo por imagen: <strong><%= limits.maxImageMb %> MB</strong>.</li>
+      <li>Máximo por lote: <strong><%= limits.maxImages %> fotografías</strong>.</li>
+      <li>Máximo del ZIP: <strong><%= limits.maxZipMb %> MB</strong>.</li>
+      <li>Para cargas grandes, usa lotes de aproximadamente 200 fotografías.</li>
+    </ul>
+    <div class="privacy-note">
+      El sistema procesa una fotografía a la vez, la normaliza a 300 × 400 px y elimina el ZIP temporal al terminar.
+    </div>
+  </article>
+
+  <article class="panel-card bulk-photo-form-card">
+    <h2>Subir fotografías</h2>
+    <form method="post" action="/admin/fotografias/importar" enctype="multipart/form-data" class="bulk-photo-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <label class="form-label" for="photos_zip">Archivo ZIP</label>
+      <input
+        class="form-control file-input"
+        id="photos_zip"
+        name="photos_zip"
+        type="file"
+        accept=".zip,application/zip,application/x-zip-compressed"
+        required
+      >
+
+      <fieldset class="bulk-mode-fieldset">
+        <legend>Qué hacer si el empleado ya tiene fotografía</legend>
+        <label class="radio-option">
+          <input type="radio" name="mode" value="replace" checked>
+          <span>
+            <strong>Reemplazar la fotografía existente</strong>
+            <small>Recomendado para la primera carga validada por Capital Humano.</small>
+          </span>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="mode" value="skip">
+          <span>
+            <strong>Omitir empleados que ya tienen fotografía</strong>
+            <small>Conserva la imagen actual y sólo carga fotografías faltantes.</small>
+          </span>
+        </label>
+      </fieldset>
+
+      <button class="button button-primary button-block" type="submit">Procesar ZIP</button>
+      <p class="help-text">No cierres la pestaña mientras se procesa el lote.</p>
+    </form>
+  </article>
+</section>

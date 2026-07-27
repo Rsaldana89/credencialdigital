@@ -13,6 +13,30 @@ function normalizeEmployeeNumber(value) {
   return employeeNumber;
 }
 
+function employeeNumberLookupKey(value) {
+  const employeeNumber = normalizeEmployeeNumber(value);
+  if (!employeeNumber) return null;
+
+  // Para numeros puramente numericos, 04886 y 4886 representan al mismo empleado.
+  // Los identificadores alfanumericos se conservan exactamente como estan.
+  if (/^\d+$/.test(employeeNumber)) {
+    return employeeNumber.replace(/^0+(?=\d)/, '');
+  }
+
+  return employeeNumber;
+}
+
+function formatEmployeeNumber(value, minimumDigits = 5) {
+  const employeeNumber = normalizeEmployeeNumber(value);
+  if (!employeeNumber) return 'No disponible';
+
+  if (/^\d+$/.test(employeeNumber) && employeeNumber.length < minimumDigits) {
+    return employeeNumber.padStart(minimumDigits, '0');
+  }
+
+  return employeeNumber;
+}
+
 function normalizeToken(value) {
   // Conserva mayusculas/minusculas porque qr_token puede usar una collation binaria.
   // Se admiten tokens hexadecimales actuales y formatos URL-safe heredados.
@@ -441,6 +465,8 @@ async function listEmployeesForPhotoImport() {
 
 module.exports = {
   normalizeEmployeeNumber,
+  employeeNumberLookupKey,
+  formatEmployeeNumber,
   normalizeToken,
   normalizeDepartment,
   isEmployeeActive,

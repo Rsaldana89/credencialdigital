@@ -75,6 +75,7 @@ async function credential(req, res, next) {
       qrDataUrl,
       generatedAt,
       formattedStartDate: formatDate(resolution.employee.start_date),
+      displayEmployeeNumber: employeeService.formatEmployeeNumber(resolution.employee.employee_number),
       pageStyles: '/css/credential-v30.css',
       hideSiteChrome: true
     });
@@ -127,6 +128,7 @@ async function downloadCredentialPng(req, res, next) {
     ]);
 
     const generatedAt = formatDateTime();
+    const displayEmployeeNumber = employeeService.formatEmployeeNumber(employee.employee_number);
     const imageBuffer = await credentialImageService.generateCredentialPng({
       employee,
       photoBuffer: storedPhoto?.photo_blob || placeholderBuffer,
@@ -134,10 +136,13 @@ async function downloadCredentialPng(req, res, next) {
       sloganBuffer,
       qrBuffer,
       formattedStartDate: formatDate(employee.start_date),
+      displayEmployeeNumber,
       generatedAt
     });
 
-    const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number) || 'EMPLEADO';
+    const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number)
+      ? displayEmployeeNumber
+      : 'EMPLEADO';
     const filename = `${employeeNumber}_CREDENCIAL_QR.png`;
 
     res.set({

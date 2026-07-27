@@ -129,14 +129,27 @@ async function processPhotoZip({ zipPath, mode, uploadedBy, originalFilename }) 
     }
 
     const employees = await employeeService.listEmployeesForPhotoImport();
-    const employeeIndex = new Map();
+    const exactEmployeeIndex = new Map();
+    const canonicalEmployeeIndex = new Map();
+    const ambiguousCanonicalNumbers = new Set();
     const existingPhotos = new Set();
 
     employees.forEach((employee) => {
-      const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
-      if (!employeeNumber || employeeIndex.has(employeeNumber)) return;
-      employeeIndex.set(employeeNumber, employee);
-      if (Number(employee.has_photo) === 1) existingPhotos.add(employeeNumber);
+      const storedEmployeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
+      const canonicalNumber = employeeService.employeeNumberLookupKey(storedEmployeeNumber);
+      if (!storedEmployeeNumber || !canonicalNumber) return;
+
+      exactEmployeeIndex.set(storedEmployeeNumber, employee);
+
+      if (canonicalEmployeeIndex.has(canonicalNumber)) {
+        const previous = canonicalEmployeeIndex.get(canonicalNumber);
+        const previousNumber = employeeService.normalizeEmployeeNumber(previous.employee_number);
+        if (previousNumber !== storedEmployeeNumber) ambiguousCanonicalNumbers.add(canonicalNumber);
+      } else {
+        canonicalEmployeeIndex.set(canonicalNumber, employee);
+      }
+
+      if (Number(employee.has_photo) === 1) existingPhotos.add(storedEmployeeNumber);
     });
 
     const seenEmployeeNumbers = new Set();
@@ -166,8 +179,9 @@ async function processPhotoZip({ zipPath, mode, uploadedBy, originalFilename }) 
       }
 
       const filenameWithoutExtension = path.basename(filename, extension).trim();
-      const employeeNumber = employeeService.normalizeEmployeeNumber(filenameWithoutExtension);
-      if (!employeeNumber) {
+      const requestedEmployeeNumber = employeeService.normalizeEmployeeNumber(filenameWithoutExtension);
+      const canonicalNumber = employeeService.employeeNumberLookupKey(requestedEmployeeNumber);
+      if (!requestedEmployeeNumber || !canonicalNumber) {
         results.push(result({
           filename,
           status: 'INVALID_FILENAME',
@@ -176,34 +190,44 @@ async function processPhotoZip({ zipPath, mode, uploadedBy, originalFilename }) 
         continue;
       }
 
-      if (seenEmployeeNumbers.has(employeeNumber)) {
+      let employee = exactEmployeeIndex.get(requestedEmployeeNumber);
+      if (!employee && !ambiguousCanonicalNumbers.has(canonicalNumber)) {
+        employee = canonicalEmployeeIndex.get(canonicalNumber);
+      }
+
+      if (!employee) {
         results.push(result({
           filename,
-          employeeNumber,
+          employeeNumber: employeeService.formatEmployeeNumber(requestedEmployeeNumber),
+          status: 'EMPLOYEE_NOT_FOUND',
+          detail: ambiguousCanonicalNumbers.has(canonicalNumber)
+            ? 'El número coincide con más de un registro. Usa exactamente el valor guardado en personal.employee_number.'
+            : 'No existe ese número de empleado en la tabla personal.'
+        }));
+        continue;
+      }
+
+      const storedEmployeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
+      const displayedEmployeeNumber = employeeService.formatEmployeeNumber(storedEmployeeNumber);
+
+      if (seenEmployeeNumbers.has(storedEmployeeNumber)) {
+        results.push(result({
+          filename,
+          employeeNumber: displayedEmployeeNumber,
+          employeeName: employee.full_name || '',
           status: 'DUPLICATE_EMPLOYEE',
           detail: 'El ZIP contiene más de una fotografía para el mismo número de empleado.'
         }));
         continue;
       }
-      seenEmployeeNumbers.add(employeeNumber);
-
-      const employee = employeeIndex.get(employeeNumber);
-      if (!employee) {
-        results.push(result({
-          filename,
-          employeeNumber,
-          status: 'EMPLOYEE_NOT_FOUND',
-          detail: 'No existe ese número de empleado en la tabla personal.'
-        }));
-        continue;
-      }
+      seenEmployeeNumbers.add(storedEmployeeNumber);
 
       const employeeName = employee.full_name || '';
-      const hadPhoto = existingPhotos.has(employeeNumber);
+      const hadPhoto = existingPhotos.has(storedEmployeeNumber);
       if (selectedMode === 'skip' && hadPhoto) {
         results.push(result({
           filename,
-          employeeNumber,
+          employeeNumber: displayedEmployeeNumber,
           employeeName,
           status: 'SKIPPED_EXISTING',
           detail: 'Se conservó la fotografía que ya estaba guardada.'
@@ -215,16 +239,16 @@ async function processPhotoZip({ zipPath, mode, uploadedBy, originalFilename }) 
         const fileBuffer = await reader.readEntry(entry);
         const normalized = await photoService.normalizePhoto(fileBuffer);
         await photoService.saveEmployeePhoto({
-          employeeNumber,
+          employeeNumber: storedEmployeeNumber,
           normalized,
           originalFilename: filename,
           uploadedBy
         });
-        existingPhotos.add(employeeNumber);
+        existingPhotos.add(storedEmployeeNumber);
 
         results.push(result({
           filename,
-          employeeNumber,
+          employeeNumber: displayedEmployeeNumber,
           employeeName,
           status: hadPhoto ? 'REPLACED' : 'IMPORTED',
           detail: hadPhoto
@@ -248,7 +272,7 @@ async function processPhotoZip({ zipPath, mode, uploadedBy, originalFilename }) 
           detail = error.message.slice(0, 300);
         }
 
-        results.push(result({ filename, employeeNumber, employeeName, status, detail }));
+        results.push(result({ filename, employeeNumber: displayedEmployeeNumber, employeeName, status, detail }));
       }
     }
 

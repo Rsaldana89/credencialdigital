@@ -1,3 +1,18 @@
+## v1.0.35 - textos más legibles y QR ampliado
+
+- Se incrementó ligeramente el tamaño de las etiquetas y valores de los campos de la credencial.
+- El código QR ahora ocupa una mayor proporción del recuadro blanco, conservando el margen necesario para que siga siendo fácil de escanear.
+- Los mismos ajustes se aplicaron tanto a la vista pública HTML como al PNG descargable.
+- No requiere cambios en MySQL y no modifica ni regenera los tokens QR existentes.
+
+
+## Cambios de la version 1.0.37
+
+- El numero de empleado se presenta con un minimo de cinco digitos en la credencial: `4886` se muestra como `04886`.
+- La importacion masiva acepta indistintamente `4886.jpg` o `04886.jpg` y guarda la foto usando el numero real almacenado en `personal`.
+- Los bloques `Activo` y `Fecha de consulta` ahora tienen texto centrado y una fuente ligeramente mayor.
+- No se modifican tokens QR ni se requiere una migracion de base de datos.
+
 ## v1.0.33 - credencial en vista limpia
 
 - La credencial pública se muestra sin el encabezado ni el pie de página del sistema.

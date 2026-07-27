@@ -10,13 +10,15 @@
 <section class="bulk-photo-grid">
   <article class="panel-card bulk-photo-instructions">
     <h2>Cómo preparar el ZIP</h2>
-    <p>Cada archivo debe llamarse exactamente con el número de empleado registrado en <code>personal.employee_number</code>.</p>
+    <p>Cada archivo debe llamarse con el número de empleado. Para empleados de cuatro dígitos se acepta con o sin cero inicial.</p>
     <div class="filename-examples" aria-label="Ejemplos de nombres válidos">
       <code>10733.jpg</code>
       <code>4886.jpeg</code>
+      <code>04886.jpg</code>
       <code>11815.png</code>
     </div>
     <ul class="compact-list">
+      <li><code>4886.jpg</code> y <code>04886.jpg</code> se reconocen como el mismo empleado.</li>
       <li>Formatos admitidos: JPG, JPEG y PNG.</li>
       <li>Máximo por imagen: <strong><%= limits.maxImageMb %> MB</strong>.</li>
       <li>Máximo por lote: <strong><%= limits.maxImages %> fotografías</strong>.</li>

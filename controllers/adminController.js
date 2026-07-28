@@ -6,18 +6,13 @@ const employeeService = require('../services/employeeService');
 const photoService = require('../services/photoService');
 const qrService = require('../services/qrService');
 const bulkPhotoImportService = require('../services/bulkPhotoImportService');
+const adminAuthService = require('../services/adminAuthService');
 
 function formatDate(value) {
   if (!value) return 'No disponible';
   const text = String(value).slice(0, 10);
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
   return match ? `${match[3]}/${match[2]}/${match[1]}` : text;
-}
-
-function safeEqual(left, right) {
-  const leftDigest = crypto.createHash('sha256').update(String(left || '')).digest();
-  const rightDigest = crypto.createHash('sha256').update(String(right || '')).digest();
-  return crypto.timingSafeEqual(leftDigest, rightDigest);
 }
 
 function setFlash(req, type, message) {
@@ -63,10 +58,12 @@ function loginForm(req, res) {
 
 async function login(req, res, next) {
   try {
-    const validUser = safeEqual(req.body.username, process.env.ADMIN_USER || 'admin');
-    const validPassword = safeEqual(req.body.password, process.env.ADMIN_PASSWORD || 'admin123');
+    const authenticatedUser = adminAuthService.authenticate(
+      req.body.username,
+      req.body.password
+    );
 
-    if (!validUser || !validPassword) {
+    if (!authenticatedUser) {
       return res.status(401).render('admin/login', {
         title: 'Acceso administrativo',
         loginError: 'Usuario o contraseña incorrectos.'
@@ -80,7 +77,8 @@ async function login(req, res, next) {
     req.session.regenerate((error) => {
       if (error) return next(error);
       req.session.adminAuthenticated = true;
-      req.session.adminUser = process.env.ADMIN_USER || 'admin';
+      req.session.adminUser = authenticatedUser.username;
+      req.session.adminRole = authenticatedUser.role;
       req.session.csrfToken = crypto.randomBytes(32).toString('hex');
       req.session.flash = { type: 'success', message: 'Sesión iniciada correctamente.' };
       return res.redirect(returnTo);

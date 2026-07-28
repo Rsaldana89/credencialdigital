@@ -1,3 +1,11 @@
+## Cambios de la versión 1.0.38
+
+- El inicio de sesión ahora admite el usuario administrativo principal y dos usuarios adicionales de Capital Humano.
+- Los usuarios adicionales se configuran exclusivamente mediante variables de entorno; las contraseñas no se guardan en el código ni en GitHub.
+- Se registra en la sesión el nombre del usuario que realizó cada carga individual o masiva de fotografías.
+- Los tres usuarios conservan actualmente los mismos permisos dentro del panel administrativo.
+- No se modifican tokens QR, fotografías, tablas ni procedimientos de MySQL.
+
 ## v1.0.35 - textos más legibles y QR ampliado
 
 - Se incrementó ligeramente el tamaño de las etiquetas y valores de los campos de la credencial.
@@ -169,6 +177,12 @@ DB_NAME=sistema_gestion
 
 ADMIN_USER=admin
 ADMIN_PASSWORD=admin123
+
+CAPITAL_HUMANO_1_USER=capitalhumano1
+CAPITAL_HUMANO_1_PASSWORD=colocar_en_railway
+CAPITAL_HUMANO_2_USER=capitalhumano2
+CAPITAL_HUMANO_2_PASSWORD=colocar_en_railway
+
 SESSION_SECRET=cambiar_esto_por_una_clave_segura
 ```
 
@@ -204,7 +218,9 @@ Abre:
 http://localhost:3000/admin/login
 ```
 
-Usa `ADMIN_USER` y `ADMIN_PASSWORD` del archivo `.env`.
+Usa `ADMIN_USER` y `ADMIN_PASSWORD` para la cuenta principal. También puedes configurar `CAPITAL_HUMANO_1_USER`, `CAPITAL_HUMANO_1_PASSWORD`, `CAPITAL_HUMANO_2_USER` y `CAPITAL_HUMANO_2_PASSWORD` para dos cuentas adicionales.
+
+En un archivo `.env` local, una contraseña que contenga `#` debe escribirse entre comillas, por ejemplo: `CAPITAL_HUMANO_1_PASSWORD="una_clave_con_#"`. En Railway se captura el valor directamente en el campo de la variable.
 
 Todas las rutas administrativas están protegidas mediante sesión. Los formularios administrativos también incluyen validación CSRF.
 

@@ -1,0 +1,129 @@
+<%
+  const selectedRaw = formValues.selected_employees || [];
+  const selectedValues = Array.isArray(selectedRaw) ? selectedRaw.map(String) : [String(selectedRaw || '')];
+  const currentInviteMode = formValues.invite_mode === 'SELECTED' ? 'SELECTED' : 'ALL_ACTIVE';
+  const currentEventType = formValues.event_type === 'FIESTA_PREMIOS' ? 'FIESTA_PREMIOS' : 'GENERAL';
+%>
+
+<a class="back-link" href="/admin/eventos">← Volver a eventos</a>
+<section class="page-heading event-heading">
+  <div>
+    <p class="eyebrow">Nuevo evento</p>
+    <h1>Generar lista de asistencia</h1>
+    <p class="muted">Se crea una lista independiente. No se modifica la información de empleados ni los QR existentes.</p>
+  </div>
+</section>
+
+<% if (formError) { %>
+  <div class="alert alert-danger" role="alert"><%= formError %></div>
+<% } %>
+
+<form method="post" action="/admin/eventos" class="event-create-form" id="event-create-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <section class="panel-card event-form-section">
+    <h2>1. Datos del evento</h2>
+    <div class="event-form-grid">
+      <label class="event-field event-field--wide">
+        <span>Nombre del evento</span>
+        <input class="form-control" type="text" name="event_name" maxlength="160" required value="<%= formValues.event_name || '' %>" placeholder="Ej. Fiesta Anual CHC 2026">
+      </label>
+      <label class="event-field">
+        <span>Fecha y hora</span>
+        <input class="form-control" type="datetime-local" name="event_date" required value="<%= formValues.event_date || '' %>">
+      </label>
+      <label class="event-field event-field--wide">
+        <span>Descripción (opcional)</span>
+        <textarea class="form-control event-textarea" name="description" maxlength="500" rows="3" placeholder="Notas internas del evento"><%= formValues.description || '' %></textarea>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel-card event-form-section">
+    <h2>2. Tipo de evento</h2>
+    <div class="event-choice-grid">
+      <label class="event-choice-card">
+        <input type="radio" name="event_type" value="GENERAL" <%= currentEventType === 'GENERAL' ? 'checked' : '' %>>
+        <span class="event-choice-card__body">
+          <strong>General</strong>
+          <small>Control de invitados y asistencia.</small>
+        </span>
+      </label>
+      <label class="event-choice-card">
+        <input type="radio" name="event_type" value="FIESTA_PREMIOS" <%= currentEventType === 'FIESTA_PREMIOS' ? 'checked' : '' %>>
+        <span class="event-choice-card__body">
+          <strong>Fiesta con Premios</strong>
+          <small>Asistencia + Premio o Premio de consolación, nunca ambos.</small>
+        </span>
+      </label>
+    </div>
+  </section>
+
+  <section class="panel-card event-form-section">
+    <div class="event-section-title-row">
+      <div>
+        <h2>3. Invitados</h2>
+        <p class="muted"><%= employees.length %> empleados activos disponibles.</p>
+      </div>
+    </div>
+
+    <div class="event-choice-grid event-choice-grid--invite">
+      <label class="event-choice-card">
+        <input type="radio" name="invite_mode" value="ALL_ACTIVE" <%= currentInviteMode === 'ALL_ACTIVE' ? 'checked' : '' %>>
+        <span class="event-choice-card__body">
+          <strong>Todos los activos</strong>
+          <small>Opción recomendada y seleccionada por default.</small>
+        </span>
+      </label>
+      <label class="event-choice-card">
+        <input type="radio" name="invite_mode" value="SELECTED" <%= currentInviteMode === 'SELECTED' ? 'checked' : '' %>>
+        <span class="event-choice-card__body">
+          <strong>Seleccionar empleados</strong>
+          <small>Busca por nombre o número y marca únicamente los invitados.</small>
+        </span>
+      </label>
+    </div>
+
+    <div id="event-selected-panel" class="event-selected-panel" <%= currentInviteMode === 'SELECTED' ? '' : 'hidden' %>>
+      <div class="event-selection-tools">
+        <label class="event-field event-field--wide">
+          <span>Buscar por número, nombre o puesto</span>
+          <input class="form-control" type="search" id="event-employee-filter" placeholder="Ej. 04886, María, Cajero">
+        </label>
+        <label class="event-field event-field--wide">
+          <span>Números de empleado (opcional, uno por línea o separados por coma)</span>
+          <textarea class="form-control event-textarea" name="employee_numbers" rows="3" placeholder="04886&#10;05120&#10;06315"><%= formValues.employee_numbers || '' %></textarea>
+        </label>
+        <div class="event-selection-toolbar">
+          <button class="button button-secondary button-small" type="button" id="event-select-visible">Seleccionar visibles</button>
+          <button class="button button-ghost button-small" type="button" id="event-clear-selection">Limpiar selección</button>
+          <span id="event-selection-count" class="muted">0 seleccionados</span>
+        </div>
+      </div>
+
+      <div class="event-employee-picker" id="event-employee-picker">
+        <% employees.forEach((employee) => { %>
+          <label class="event-employee-option">
+            <input
+              type="checkbox"
+              name="selected_employees"
+              value="<%= employee.employee_number %>"
+              <%= selectedValues.includes(String(employee.employee_number)) ? 'checked' : '' %>
+            >
+            <span>
+              <strong><%= formatEmployeeNumber(employee.employee_number) %> · <%= employee.full_name || 'Sin nombre' %></strong>
+              <small><%= employee.puesto || 'Sin puesto' %> · <%= employee.department_name || 'Sin departamento' %></small>
+            </span>
+          </label>
+        <% }) %>
+      </div>
+    </div>
+  </section>
+
+  <div class="event-create-actions">
+    <a class="button button-secondary" href="/admin/eventos">Cancelar</a>
+    <button class="button button-primary" type="submit">Crear evento y generar lista</button>
+  </div>
+</form>
+
+<script src="/js/events-new.js" defer></script>

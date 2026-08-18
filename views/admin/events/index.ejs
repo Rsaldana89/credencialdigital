@@ -1,0 +1,45 @@
+<section class="page-heading event-heading">
+  <div>
+    <p class="eyebrow">Administración</p>
+    <h1>Asistencia a eventos</h1>
+    <p class="muted">Cada evento conserva su propia lista de invitados, asistencia y entrega de premios.</p>
+  </div>
+  <a class="button button-primary" href="/admin/eventos/nuevo">Crear evento</a>
+</section>
+
+<% if (!events.length) { %>
+  <section class="event-empty panel-card">
+    <h2>Aún no hay eventos</h2>
+    <p class="muted">Crea el primer evento. Por default se invitará a todos los empleados activos.</p>
+    <a class="button button-primary" href="/admin/eventos/nuevo">Crear primer evento</a>
+  </section>
+<% } else { %>
+  <section class="event-list-grid">
+    <% events.forEach((event) => { %>
+      <article class="event-list-card <%= event.status === 'OPEN' ? 'event-list-card--open' : 'event-list-card--closed' %>">
+        <div class="event-list-card__top">
+          <div>
+            <span class="event-id">Evento #<%= event.id %></span>
+            <h2><%= event.event_name %></h2>
+          </div>
+          <span class="event-status <%= event.status === 'OPEN' ? 'event-status--open' : 'event-status--closed' %>">
+            <%= event.status === 'OPEN' ? 'Abierto' : 'Cerrado' %>
+          </span>
+        </div>
+        <p class="event-type-label">
+          <%= event.event_type === 'FIESTA_PREMIOS' ? 'Fiesta con Premios' : 'General' %>
+          · <%= formatDateTime(event.event_date) %>
+        </p>
+        <div class="event-card-stats">
+          <div><strong><%= event.invited_count || 0 %></strong><span>Invitados</span></div>
+          <div><strong><%= event.attended_count || 0 %></strong><span>Asistentes</span></div>
+          <% if (event.event_type === 'FIESTA_PREMIOS') { %>
+            <div><strong><%= event.prize_count || 0 %></strong><span>Premios</span></div>
+            <div><strong><%= event.consolation_count || 0 %></strong><span>Consolación</span></div>
+          <% } %>
+        </div>
+        <a class="button button-primary button-block" href="/admin/eventos/<%= event.id %>">Abrir evento</a>
+      </article>
+    <% }) %>
+  </section>
+<% } %>

@@ -8,6 +8,7 @@ const { testConnection, pool } = require('./config/db');
 const { attachCsrfToken } = require('./middleware/csrf');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const eventRoutes = require('./routes/eventRoutes');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -24,7 +25,9 @@ app.use((req, res, next) => {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'no-referrer',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Permissions-Policy': req.path.startsWith('/admin/eventos')
+      ? 'camera=(self), microphone=(), geolocation=()'
+      : 'camera=(), microphone=(), geolocation=()',
     'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
   });
   next();
@@ -77,6 +80,7 @@ app.get('/health', async (req, res) => {
 });
 
 app.use('/', publicRoutes);
+app.use('/admin/eventos', eventRoutes);
 app.use('/admin', adminRoutes);
 
 app.use((req, res) => {

@@ -1,0 +1,181 @@
+<section
+  class="event-live-root"
+  id="event-live-root"
+  data-event-id="<%= event.id %>"
+  data-event-type="<%= event.event_type %>"
+  data-event-status="<%= event.status %>"
+  data-csrf="<%= csrfToken %>"
+>
+  <section class="event-scanner-sticky">
+    <div class="event-scanner-head">
+      <div>
+        <span class="event-id">Evento #<%= event.id %></span>
+        <h1><%= event.event_name %></h1>
+        <p><%= event.event_type === 'FIESTA_PREMIOS' ? 'Fiesta con Premios' : 'General' %> · <%= formatDateTime(event.event_date) %></p>
+      </div>
+      <span class="event-status <%= event.status === 'OPEN' ? 'event-status--open' : 'event-status--closed' %>">
+        <%= event.status === 'OPEN' ? 'Abierto' : 'Cerrado' %>
+      </span>
+    </div>
+
+    <div class="event-scanner-grid">
+      <div class="event-camera-box">
+        <video id="event-scanner-video" class="event-scanner-video" playsinline muted></video>
+        <div class="event-camera-overlay" aria-hidden="true"><span></span></div>
+        <div class="event-camera-placeholder" id="event-camera-placeholder">
+          <strong>Escáner QR</strong>
+          <span>Activa la cámara para leer la credencial existente.</span>
+        </div>
+      </div>
+      <div class="event-scanner-controls">
+        <div id="event-scanner-message" class="event-scanner-message" role="status">
+          <% if (event.status === 'OPEN') { %>
+            Activa la cámara. El QR se comparará con Credenciales Digitales y con esta lista.
+          <% } else { %>
+            El evento está cerrado. El escáner y los cambios están deshabilitados.
+          <% } %>
+        </div>
+        <div class="button-row event-camera-buttons">
+          <button class="button button-primary" type="button" id="event-start-camera" <%= event.status !== 'OPEN' ? 'disabled' : '' %>>Activar cámara</button>
+          <button class="button button-secondary" type="button" id="event-stop-camera" disabled>Detener</button>
+        </div>
+        <p class="help-text">La cámara requiere HTTPS en producción. Si no es posible escanear, usa la búsqueda manual.</p>
+      </div>
+    </div>
+
+    <div class="event-scan-result" id="event-scan-result" hidden>
+      <div class="event-scan-result__main">
+        <span class="event-result-kicker" id="event-result-kicker">Resultado</span>
+        <strong id="event-result-name"></strong>
+        <span id="event-result-meta"></span>
+        <span id="event-result-status"></span>
+      </div>
+      <div class="event-result-actions" id="event-result-actions">
+        <% if (event.event_type === 'FIESTA_PREMIOS') { %>
+          <button class="button button-primary" type="button" id="event-result-prize" hidden>Entregar Premio</button>
+          <button class="button button-secondary" type="button" id="event-result-consolation" hidden>Premio de consolación</button>
+        <% } %>
+      </div>
+    </div>
+  </section>
+
+  <div class="event-page-content">
+    <div class="event-page-topbar">
+      <a class="back-link" href="/admin/eventos">← Volver a eventos</a>
+      <div class="page-actions">
+        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Excel</a>
+        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">PDF</a>
+        <form method="post" action="/admin/eventos/<%= event.id %>/estado">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="status" value="<%= event.status === 'OPEN' ? 'CLOSED' : 'OPEN' %>">
+          <button class="button <%= event.status === 'OPEN' ? 'button-danger' : 'button-primary' %>" type="submit">
+            <%= event.status === 'OPEN' ? 'Cerrar evento' : 'Reabrir evento' %>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <section class="event-live-stats">
+      <article><strong><%= event.invited_count || 0 %></strong><span>Invitados</span></article>
+      <article><strong><%= event.attended_count || 0 %></strong><span>Asistentes</span></article>
+      <% if (event.event_type === 'FIESTA_PREMIOS') { %>
+        <article><strong><%= event.prize_count || 0 %></strong><span>Premios</span></article>
+        <article><strong><%= event.consolation_count || 0 %></strong><span>Consolación</span></article>
+      <% } %>
+    </section>
+
+    <section class="panel-card event-manual-search-section">
+      <div class="event-section-title-row">
+        <div>
+          <h2>Búsqueda manual</h2>
+          <p class="muted">Busca por número de empleado, nombre o puesto. Solo aparecerán empleados invitados a este evento.</p>
+        </div>
+      </div>
+      <div class="event-manual-search-row">
+        <input class="form-control" type="search" id="event-manual-search" placeholder="Número de empleado o nombre" autocomplete="off">
+        <button class="button button-primary" type="button" id="event-manual-search-button">Buscar</button>
+      </div>
+      <div id="event-manual-results" class="event-manual-results" aria-live="polite"></div>
+    </section>
+
+    <section class="panel-card event-attendance-section">
+      <div class="event-section-title-row">
+        <div>
+          <h2>Lista del evento</h2>
+          <p class="muted">La asistencia y los premios pertenecen únicamente al evento #<%= event.id %>.</p>
+        </div>
+      </div>
+
+      <div class="table-responsive event-table-wrap">
+        <table class="event-table">
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Nombre / puesto</th>
+              <th>Antigüedad</th>
+              <th>Asistencia</th>
+              <% if (event.event_type === 'FIESTA_PREMIOS') { %><th>Premios</th><% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% attendees.forEach((attendee) => { %>
+              <tr>
+                <td data-label="Empleado"><strong><%= formatEmployeeNumber(attendee.employee_number) %></strong></td>
+                <td data-label="Nombre / puesto">
+                  <strong><%= attendee.full_name_snapshot %></strong>
+                  <span class="table-secondary"><%= attendee.puesto_snapshot || 'Sin puesto' %> · <%= attendee.department_snapshot || 'Sin departamento' %></span>
+                </td>
+                <td data-label="Antigüedad">
+                  <%= calculateTenure(attendee.start_date_snapshot, String(event.event_date).slice(0, 10)) %>
+                  <span class="table-secondary">Ingreso: <%= formatDate(attendee.start_date_snapshot) %></span>
+                </td>
+                <td data-label="Asistencia">
+                  <% if (attendee.attended_at) { %>
+                    <span class="pill pill-success">Asistió</span>
+                    <span class="table-secondary"><%= formatDateTime(attendee.attended_at) %> · <%= attendee.attendance_method || '' %></span>
+                  <% } else if (event.status === 'OPEN') { %>
+                    <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/asistencia">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button class="button button-primary button-small" type="submit">Marcar asistencia</button>
+                    </form>
+                  <% } else { %>
+                    <span class="pill pill-muted">No asistió</span>
+                  <% } %>
+                </td>
+                <% if (event.event_type === 'FIESTA_PREMIOS') { %>
+                  <td data-label="Premios">
+                    <% if (attendee.award_type) { %>
+                      <span class="pill pill-success"><%= attendee.award_type === 'PREMIO' ? 'Premio entregado' : 'Consolación entregada' %></span>
+                      <span class="table-secondary"><%= formatDateTime(attendee.award_delivered_at) %></span>
+                    <% } else if (!attendee.attended_at) { %>
+                      <span class="pill pill-muted">Requiere asistencia</span>
+                    <% } else if (event.status !== 'OPEN') { %>
+                      <span class="pill pill-muted">Sin entrega</span>
+                    <% } else { %>
+                      <div class="event-award-buttons">
+                        <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/premio">
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <input type="hidden" name="award_type" value="PREMIO">
+                          <input type="hidden" name="source" value="LIST">
+                          <button class="button button-primary button-small" type="submit">Premio</button>
+                        </form>
+                        <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/premio">
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                          <input type="hidden" name="award_type" value="CONSOLACION">
+                          <input type="hidden" name="source" value="LIST">
+                          <button class="button button-secondary button-small" type="submit">Consolación</button>
+                        </form>
+                      </div>
+                    <% } %>
+                  </td>
+                <% } %>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</section>
+
+<script src="/js/events-show.js" defer></script>

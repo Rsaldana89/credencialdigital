@@ -22,6 +22,7 @@
         <% if (isAuthenticated) { %>
           <a class="nav-link <%= currentPath === '/admin' ? 'active' : '' %>" href="/admin">Panel</a>
           <a class="nav-link <%= currentPath.startsWith('/admin/empleados') ? 'active' : '' %>" href="/admin/empleados">Empleados</a>
+          <a class="nav-link <%= currentPath.startsWith('/admin/eventos') ? 'active' : '' %>" href="/admin/eventos">Eventos</a>
           <a class="nav-link <%= currentPath.startsWith('/admin/fotografias') ? 'active' : '' %>" href="/admin/fotografias/importar">Fotografías</a>
           <a class="nav-link" href="/admin/logout">Salir</a>
         <% } else { %>

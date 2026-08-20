@@ -37,9 +37,10 @@
         </div>
         <div class="button-row event-camera-buttons">
           <button class="button button-primary" type="button" id="event-start-camera" <%= event.status !== 'OPEN' ? 'disabled' : '' %>>Activar cámara</button>
+          <button class="button button-secondary" type="button" id="event-switch-camera" hidden>Cambiar cámara</button>
           <button class="button button-secondary" type="button" id="event-stop-camera" disabled>Detener</button>
         </div>
-        <p class="help-text">La cámara requiere HTTPS en producción. Si no es posible escanear, usa la búsqueda manual.</p>
+        <p class="help-text">La cámara requiere HTTPS. El sistema usa el lector QR nativo cuando existe y un lector alterno compatible cuando el navegador no lo incluye.</p>
       </div>
     </div>
 
@@ -178,4 +179,5 @@
   </div>
 </section>
 
-<script src="/js/events-show.js" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.40" defer></script>
+<script src="/js/events-show.js?v=1.0.40" defer></script>

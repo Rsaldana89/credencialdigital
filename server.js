@@ -42,6 +42,14 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(express.json({ limit: '1mb' }));
+// jsQR se sirve desde node_modules en el mismo origen para mantener el CSP cerrado
+// y ofrecer lectura QR incluso cuando BarcodeDetector no existe (iPhone, varios Chrome/PC, etc.).
+app.use('/vendor/jsqr', express.static(path.join(__dirname, 'node_modules', 'jsqr', 'dist'), {
+  maxAge: isProduction ? '30d' : 0,
+  etag: true,
+  fallthrough: true
+}));
+
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: isProduction ? '1d' : 0,
   etag: true

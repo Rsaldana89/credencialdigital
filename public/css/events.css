@@ -237,6 +237,12 @@
   color: #fff;
   background: #232428;
 }
+/* El atributo hidden por sí solo puede ser sobreescrito por display:grid del autor.
+   Esta regla garantiza que la vista previa de la cámara no quede tapada. */
+.event-camera-placeholder[hidden],
+.event-camera-placeholder--hidden {
+  display: none !important;
+}
 .event-camera-placeholder strong { font-size: 1.05rem; }
 .event-camera-placeholder span { color: #cfd1d5; font-size: .8rem; }
 .event-scanner-controls {

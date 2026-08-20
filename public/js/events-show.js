@@ -55,6 +55,13 @@
     if (!active && switchButton) switchButton.hidden = true;
   }
 
+  function setCameraPlaceholderVisible(visible) {
+    if (!cameraPlaceholder) return;
+    cameraPlaceholder.hidden = !visible;
+    cameraPlaceholder.classList.toggle('event-camera-placeholder--hidden', !visible);
+    cameraPlaceholder.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
   function hideAwardButtons() {
     if (prizeButton) prizeButton.hidden = true;
     if (consolationButton) consolationButton.hidden = true;
@@ -246,7 +253,10 @@
     if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
       return 'No fue posible usar la cámara seleccionada. Intenta de nuevo para usar otra cámara disponible.';
     }
-    return 'No fue posible abrir la cámara. Revisa el permiso del sitio y vuelve a intentar.';
+    if (name === 'VideoNotVisibleError') {
+      return 'El navegador dio permiso a la cámara, pero no entregó imagen. Cierra otras apps que usen la cámara, recarga esta página y vuelve a intentar.';
+    }
+    return `No fue posible abrir la cámara${error?.message ? `: ${error.message}` : '.'} Revisa el permiso del sitio y vuelve a intentar.`;
   }
 
   async function requestCameraStream(deviceId = '') {
@@ -292,23 +302,85 @@
     }
   }
 
+  async function waitForVisibleVideo(timeoutMs = 7000) {
+    if (!video) throw new Error('No existe el elemento de video del escáner.');
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) return;
+
+    await new Promise((resolve) => {
+      let finished = false;
+      const done = () => {
+        if (finished) return;
+        if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+          finished = true;
+          cleanup();
+          resolve();
+        }
+      };
+      const cleanup = () => {
+        video.removeEventListener('loadedmetadata', done);
+        video.removeEventListener('loadeddata', done);
+        video.removeEventListener('canplay', done);
+        video.removeEventListener('playing', done);
+      };
+      ['loadedmetadata', 'loadeddata', 'canplay', 'playing'].forEach((name) => video.addEventListener(name, done));
+      window.setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        cleanup();
+        resolve();
+      }, timeoutMs);
+      done();
+    });
+
+    const track = stream?.getVideoTracks?.()[0];
+    if (!track || track.readyState !== 'live') {
+      const error = new Error('La cámara concedió permiso, pero el flujo de video no quedó activo.');
+      error.name = 'NotReadableError';
+      throw error;
+    }
+    if (!video.videoWidth || !video.videoHeight) {
+      const error = new Error('La cámara abrió, pero el navegador no entregó imagen de video.');
+      error.name = 'VideoNotVisibleError';
+      throw error;
+    }
+  }
+
   async function attachStream(nextStream) {
     stream = nextStream;
     if (!video) throw new Error('No existe el elemento de video del escáner.');
 
+    const track = stream?.getVideoTracks?.()[0];
+    if (!track) {
+      const error = new Error('El navegador no devolvió una pista de video.');
+      error.name = 'NotReadableError';
+      throw error;
+    }
+
     video.muted = true;
     video.autoplay = true;
     video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
     video.srcObject = stream;
 
-    if (video.readyState < 1) {
-      await new Promise((resolve) => {
-        const done = () => resolve();
-        video.addEventListener('loadedmetadata', done, { once: true });
-        window.setTimeout(done, 1500);
-      });
+    try {
+      await video.play();
+    } catch (error) {
+      // En algunos móviles el primer play ocurre antes de que llegue metadata.
+      await new Promise((resolve) => video.addEventListener('loadedmetadata', resolve, { once: true }));
+      await video.play();
     }
-    await video.play();
+
+    await waitForVisibleVideo();
+  }
+
+  function currentCameraDescription() {
+    const track = stream?.getVideoTracks?.()[0];
+    const settings = track?.getSettings?.() || {};
+    const width = video?.videoWidth || settings.width || '';
+    const height = video?.videoHeight || settings.height || '';
+    const resolution = width && height ? ` · ${width}x${height}` : '';
+    return `${track?.label || 'Cámara activa'}${resolution}`;
   }
 
   async function startCamera() {
@@ -333,14 +405,14 @@
       await initializeDecoder();
 
       scanning = true;
-      if (cameraPlaceholder) cameraPlaceholder.hidden = true;
+      setCameraPlaceholderVisible(false);
       setCameraButtons(true);
       await refreshCameraDevices();
 
       if (decoderMode === 'native') {
-        setScannerMessage('Cámara activa. Lector QR listo; coloca el código dentro del recuadro.');
+        setScannerMessage(`Cámara activa (${currentCameraDescription()}). Lector QR listo; coloca el código dentro del recuadro.`);
       } else if (decoderMode === 'jsqr') {
-        setScannerMessage('Cámara activa. Lector QR compatible listo; coloca el código dentro del recuadro.');
+        setScannerMessage(`Cámara activa (${currentCameraDescription()}). Lector QR compatible listo; coloca el código dentro del recuadro.`);
       } else {
         setScannerMessage('La cámara está activa, pero no cargó el lector QR. Recarga la página; mientras tanto puedes usar la búsqueda manual.', 'danger');
       }
@@ -349,7 +421,7 @@
       scanning = false;
       detectionBusy = false;
       releaseStream();
-      if (cameraPlaceholder) cameraPlaceholder.hidden = false;
+      setCameraPlaceholderVisible(true);
       setCameraButtons(false);
       setScannerMessage(cameraErrorMessage(error), 'danger');
     } finally {
@@ -373,11 +445,11 @@
       await attachStream(nextStream);
       activeCameraId = nextDevice.deviceId;
       await refreshCameraDevices();
-      setScannerMessage('Cámara cambiada. Coloca el QR dentro del recuadro.');
+      setScannerMessage(`Cámara cambiada (${currentCameraDescription()}). Coloca el QR dentro del recuadro.`);
     } catch (error) {
       scanning = false;
       releaseStream();
-      if (cameraPlaceholder) cameraPlaceholder.hidden = false;
+      setCameraPlaceholderVisible(true);
       setCameraButtons(false);
       setScannerMessage(cameraErrorMessage(error), 'danger');
     } finally {
@@ -394,7 +466,7 @@
     cameraDevices = [];
     activeCameraId = '';
     releaseStream();
-    if (cameraPlaceholder) cameraPlaceholder.hidden = false;
+    setCameraPlaceholderVisible(true);
     setCameraButtons(false);
   }
 
@@ -504,6 +576,9 @@
       hideAwardButtons();
     }
   }
+
+  setCameraPlaceholderVisible(true);
+  setCameraButtons(false);
 
   startButton?.addEventListener('click', startCamera);
   switchButton?.addEventListener('click', switchCamera);

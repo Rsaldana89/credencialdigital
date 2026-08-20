@@ -249,11 +249,14 @@ function buildPdfPageSvg(event, rows, pageNumber, totalPages, totals) {
     const attendance = row.attended === 'Sí'
       ? `Sí ${row.attended_at ? `· ${row.attended_at}` : ''}`
       : 'No';
-    const award = row.prize === 'Sí'
+    const awardLabel = row.prize === 'Sí'
       ? 'Premio'
       : row.consolation === 'Sí'
         ? 'Consolación'
         : 'Sin entrega';
+    const award = awardLabel !== 'Sin entrega' && row.award_at
+      ? `${awardLabel} · ${row.award_at}`
+      : awardLabel;
     const values = fiesta
       ? [row.employee_number, row.full_name, row.puesto, row.tenure, attendance, award]
       : [row.employee_number, row.full_name, row.puesto, row.tenure, attendance];
@@ -261,7 +264,7 @@ function buildPdfPageSvg(event, rows, pageNumber, totalPages, totals) {
     return `
       <rect x="24" y="${y}" width="${tableWidth}" height="${rowHeight}" fill="${fill}" stroke="#dedad4" stroke-width="1"/>
       ${columns.map((column, columnIndex) => {
-        const max = columnIndex === 1 ? 36 : columnIndex === 2 ? 28 : 22;
+        const max = fiesta && columnIndex === 5 ? 34 : columnIndex === 1 ? 36 : columnIndex === 2 ? 28 : 22;
         return `<text x="${column.x + 7}" y="${y + 22}" font-size="12" fill="#22252a">${svgText(truncate(values[columnIndex], max))}</text>`;
       }).join('')}`;
   }).join('');

@@ -1,3 +1,21 @@
+## Cambios de la versión 1.0.44
+
+- La sincronización automática entre dispositivos se ejecuta cada **30 segundos** para reducir todavía más la carga continua sobre Railway y MySQL.
+- Al escanear un QR **no se espera a la sincronización de 30 segundos**: el escaneo llama inmediatamente al servidor, consulta y bloquea la fila correspondiente en MySQL, y responde con el estado real de asistencia de ese empleado.
+- Si otra persona ya registró la asistencia desde otro dispositivo, el segundo escaneo recibe de inmediato **“Este empleado ya tenía asistencia registrada”** y no duplica el registro.
+- La entrega de Premio/Consolación continúa validándose directamente contra MySQL en el momento de pulsar el botón, con bloqueo de fila para evitar dobles entregas.
+- Se conserva una sincronización inicial al abrir la pantalla y actualizaciones puntuales después de las acciones del propio dispositivo.
+- No requiere cambios en la estructura de MySQL.
+
+## Cambios de la versión 1.0.43
+
+- Los eventos **General** vuelven a mostrarse sin sugerencias ni botones para activar premios.
+- Se conservan los botones **Exportar Excel** y **Exportar PDF** en la vista del evento, tanto en PC como en celular. Ambos exportan la lista completa del evento; en Fiesta con Premios incluyen asistencia y entregas de Premio/Consolación.
+- Se agregó sincronización automática entre dispositivos usando los registros del evento. La lista, los contadores y el empleado escaneado se actualizan cuando otro dispositivo registra asistencia o entrega un premio.
+- El registro de asistencia y la entrega de premios usan bloqueo de fila en MySQL para que dos o tres dispositivos puedan trabajar al mismo tiempo sin duplicar la misma operación sobre una persona.
+- Si dos dispositivos intentan entregar un premio al mismo empleado, el segundo recibe el estado real almacenado en la base de datos y actualiza sus botones sin necesitar recargar manualmente.
+- No requiere cambios en la estructura de MySQL. Usa las tablas del módulo de eventos ya creadas en v1.0.39.
+
 ## Cambios de la versión 1.0.38
 
 - El inicio de sesión ahora admite el usuario administrativo principal y dos usuarios adicionales de Capital Humano.

@@ -4,6 +4,7 @@
   data-event-id="<%= event.id %>"
   data-event-type="<%= event.event_type %>"
   data-event-status="<%= event.status %>"
+  data-last-log-id="<%= latestLogId || 0 %>"
   data-csrf="<%= csrfToken %>"
 >
   <section class="event-scanner-sticky">
@@ -13,23 +14,10 @@
         <h1><%= event.event_name %></h1>
         <p><%= event.event_type === 'FIESTA_PREMIOS' ? 'Fiesta con Premios' : 'General' %> · <%= formatDateTime(event.event_date) %></p>
       </div>
-      <span class="event-status <%= event.status === 'OPEN' ? 'event-status--open' : 'event-status--closed' %>">
+      <span id="event-status-badge" class="event-status <%= event.status === 'OPEN' ? 'event-status--open' : 'event-status--closed' %>">
         <%= event.status === 'OPEN' ? 'Abierto' : 'Cerrado' %>
       </span>
     </div>
-
-    <% if (event.event_type !== 'FIESTA_PREMIOS' && event.status === 'OPEN') { %>
-      <div class="event-awards-enable-banner">
-        <div>
-          <strong>Premios desactivados para este evento</strong>
-          <span>Este evento fue creado como General. Activa el modo de premios una sola vez para poder marcar Premio o Consolación inmediatamente después de escanear, sin buscar al empleado en la lista.</span>
-        </div>
-        <form method="post" action="/admin/eventos/<%= event.id %>/premios/habilitar">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button class="button button-primary" type="submit">Activar premios</button>
-        </form>
-      </div>
-    <% } %>
 
     <div class="event-scanner-grid">
       <div class="event-camera-box">
@@ -77,8 +65,8 @@
     <div class="event-page-topbar">
       <a class="back-link" href="/admin/eventos">← Volver a eventos</a>
       <div class="page-actions">
-        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Excel</a>
-        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">PDF</a>
+        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Exportar Excel</a>
+        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">Exportar PDF</a>
         <form method="post" action="/admin/eventos/<%= event.id %>/estado">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= event.status === 'OPEN' ? 'CLOSED' : 'OPEN' %>">
@@ -90,11 +78,11 @@
     </div>
 
     <section class="event-live-stats">
-      <article><strong><%= event.invited_count || 0 %></strong><span>Invitados</span></article>
-      <article><strong><%= event.attended_count || 0 %></strong><span>Asistentes</span></article>
+      <article><strong id="event-stat-invited"><%= event.invited_count || 0 %></strong><span>Invitados</span></article>
+      <article><strong id="event-stat-attended"><%= event.attended_count || 0 %></strong><span>Asistentes</span></article>
       <% if (event.event_type === 'FIESTA_PREMIOS') { %>
-        <article><strong><%= event.prize_count || 0 %></strong><span>Premios</span></article>
-        <article><strong><%= event.consolation_count || 0 %></strong><span>Consolación</span></article>
+        <article><strong id="event-stat-prizes"><%= event.prize_count || 0 %></strong><span>Premios</span></article>
+        <article><strong id="event-stat-consolations"><%= event.consolation_count || 0 %></strong><span>Consolación</span></article>
       <% } %>
     </section>
 
@@ -116,7 +104,7 @@
       <div class="event-section-title-row">
         <div>
           <h2>Lista del evento</h2>
-          <p class="muted">La asistencia y los premios pertenecen únicamente al evento #<%= event.id %>.</p>
+          <p class="muted"><%= event.event_type === 'FIESTA_PREMIOS' ? 'La asistencia y los premios pertenecen únicamente a este evento.' : 'La asistencia pertenece únicamente a este evento.' %></p>
         </div>
       </div>
 
@@ -133,7 +121,7 @@
           </thead>
           <tbody>
             <% attendees.forEach((attendee) => { %>
-              <tr>
+              <tr data-attendee-id="<%= attendee.id %>">
                 <td data-label="Empleado"><strong><%= formatEmployeeNumber(attendee.employee_number) %></strong></td>
                 <td data-label="Nombre / puesto">
                   <strong><%= attendee.full_name_snapshot %></strong>
@@ -143,7 +131,7 @@
                   <%= calculateTenure(attendee.start_date_snapshot, String(event.event_date).slice(0, 10)) %>
                   <span class="table-secondary">Ingreso: <%= formatDate(attendee.start_date_snapshot) %></span>
                 </td>
-                <td data-label="Asistencia">
+                <td data-label="Asistencia" data-role="attendance">
                   <% if (attendee.attended_at) { %>
                     <span class="pill pill-success">Asistió</span>
                     <span class="table-secondary"><%= formatDateTime(attendee.attended_at) %> · <%= attendee.attendance_method || '' %></span>
@@ -157,7 +145,7 @@
                   <% } %>
                 </td>
                 <% if (event.event_type === 'FIESTA_PREMIOS') { %>
-                  <td data-label="Premios">
+                  <td data-label="Premios" data-role="award">
                     <% if (attendee.award_type) { %>
                       <span class="pill pill-success"><%= attendee.award_type === 'PREMIO' ? 'Premio entregado' : 'Consolación entregada' %></span>
                       <span class="table-secondary"><%= formatDateTime(attendee.award_delivered_at) %></span>
@@ -193,4 +181,4 @@
 </section>
 
 <script src="/vendor/jsqr/jsQR.js?v=1.0.41" defer></script>
-<script src="/js/events-show.js?v=1.0.42" defer></script>
+<script src="/js/events-show.js?v=1.0.44" defer></script>

@@ -25,6 +25,10 @@
   const manualInput = document.getElementById('event-manual-search');
   const manualButton = document.getElementById('event-manual-search-button');
   const manualResults = document.getElementById('event-manual-results');
+  const statInvited = document.getElementById('event-stat-invited');
+  const statAttended = document.getElementById('event-stat-attended');
+  const statPrizes = document.getElementById('event-stat-prizes');
+  const statConsolations = document.getElementById('event-stat-consolations');
 
   const scanCanvas = document.createElement('canvas');
   const scanContext = scanCanvas.getContext('2d', { willReadFrequently: true });
@@ -41,6 +45,10 @@
   let lastQrAt = 0;
   let currentResultAttendee = null;
   let audioContext = null;
+  let lastSyncLogId = Number.parseInt(root.dataset.lastLogId || '0', 10) || 0;
+  let syncBusy = false;
+  let syncTimer = null;
+  const LIVE_SYNC_INTERVAL_MS = 30000;
 
   function ensureAudioReady() {
     try {
@@ -205,8 +213,10 @@
         qr_value: normalizedValue
       });
       renderScanResult(payload.attendee, payload.message, payload.code);
+      updateAttendeeRow(payload.attendee);
       setScannerMessage(payload.message || 'Asistencia validada.', 'success');
       playScanFeedback(payload.code, true);
+      window.setTimeout(syncLiveState, 80);
     } catch (error) {
       const message = error.payload?.message || error.message || 'No fue posible validar el QR.';
       renderScanResult(null, message, error.payload?.code);
@@ -536,6 +546,125 @@
     return element;
   }
 
+  function appendCellText(cell, primaryText, secondaryText = '') {
+    if (!cell) return;
+    if (primaryText) cell.appendChild(createElement('span', '', primaryText));
+    if (secondaryText) cell.appendChild(createElement('span', 'table-secondary', secondaryText));
+  }
+
+  function updateAttendeeRow(attendee) {
+    if (!attendee?.id) return;
+    const row = document.querySelector(`.event-table tr[data-attendee-id="${Number(attendee.id)}"]`);
+    if (!row) return;
+
+    const attendanceCell = row.querySelector('[data-role="attendance"]');
+    if (attendanceCell) {
+      attendanceCell.replaceChildren();
+      if (attendee.attended) {
+        attendanceCell.appendChild(createElement('span', 'pill pill-success', 'Asistió'));
+        const detail = [attendee.attendedAt || '', attendee.attendanceMethod || ''].filter(Boolean).join(' · ');
+        if (detail) attendanceCell.appendChild(createElement('span', 'table-secondary', detail));
+      } else if (isOpen) {
+        const button = createElement('button', 'button button-primary button-small', 'Marcar asistencia');
+        button.type = 'button';
+        button.addEventListener('click', () => performAttendeeAction(attendee, 'checkin', null, 'LIST'));
+        attendanceCell.appendChild(button);
+      } else {
+        attendanceCell.appendChild(createElement('span', 'pill pill-muted', 'No asistió'));
+      }
+    }
+
+    if (!isFiesta) return;
+    const awardCell = row.querySelector('[data-role="award"]');
+    if (!awardCell) return;
+    awardCell.replaceChildren();
+
+    if (attendee.awardType === 'PREMIO') {
+      awardCell.appendChild(createElement('span', 'pill pill-success', 'Premio entregado'));
+      if (attendee.awardDeliveredAt) awardCell.appendChild(createElement('span', 'table-secondary', attendee.awardDeliveredAt));
+      return;
+    }
+    if (attendee.awardType === 'CONSOLACION') {
+      awardCell.appendChild(createElement('span', 'pill pill-success', 'Consolación entregada'));
+      if (attendee.awardDeliveredAt) awardCell.appendChild(createElement('span', 'table-secondary', attendee.awardDeliveredAt));
+      return;
+    }
+    if (!attendee.attended) {
+      awardCell.appendChild(createElement('span', 'pill pill-muted', 'Requiere asistencia'));
+      return;
+    }
+    if (!isOpen) {
+      awardCell.appendChild(createElement('span', 'pill pill-muted', 'Sin entrega'));
+      return;
+    }
+
+    const buttons = createElement('div', 'event-award-buttons');
+    const prize = createElement('button', 'button button-primary button-small', 'Premio');
+    prize.type = 'button';
+    prize.addEventListener('click', () => performAttendeeAction(attendee, 'award', 'PREMIO', 'LIST'));
+    const consolation = createElement('button', 'button button-secondary button-small', 'Consolación');
+    consolation.type = 'button';
+    consolation.addEventListener('click', () => performAttendeeAction(attendee, 'award', 'CONSOLACION', 'LIST'));
+    buttons.append(prize, consolation);
+    awardCell.appendChild(buttons);
+  }
+
+  function updateLiveStats(event) {
+    if (!event) return;
+    if (statInvited) statInvited.textContent = String(event.invitedCount ?? 0);
+    if (statAttended) statAttended.textContent = String(event.attendedCount ?? 0);
+    if (statPrizes) statPrizes.textContent = String(event.prizeCount ?? 0);
+    if (statConsolations) statConsolations.textContent = String(event.consolationCount ?? 0);
+  }
+
+  async function syncLiveState() {
+    if (syncBusy || document.hidden) return;
+    syncBusy = true;
+    let repeatImmediately = false;
+    try {
+      const response = await fetch(
+        `/admin/eventos/${encodeURIComponent(eventId)}/estado-vivo?desde=${encodeURIComponent(lastSyncLogId)}`,
+        { headers: { Accept: 'application/json' }, cache: 'no-store' }
+      );
+      const payload = await readJsonResponse(response);
+
+      if (payload.event?.type !== eventType || payload.event?.status !== eventStatus) {
+        window.location.reload();
+        return;
+      }
+
+      updateLiveStats(payload.event);
+      const changedAttendees = Array.isArray(payload.attendees) ? payload.attendees : [];
+      changedAttendees.forEach((attendee) => updateAttendeeRow(attendee));
+
+      if (currentResultAttendee?.id) {
+        const changedCurrent = changedAttendees.find((attendee) => attendee.id === currentResultAttendee.id);
+        if (changedCurrent) {
+          renderScanResult(changedCurrent, 'Información actualizada desde la base de datos.', 'SYNC');
+        }
+      }
+
+      lastSyncLogId = Math.max(lastSyncLogId, Number(payload.latestLogId || 0));
+      repeatImmediately = Boolean(payload.hasMore);
+
+      if (changedAttendees.length && String(manualInput?.value || '').trim()) {
+        await runManualSearch(true);
+      }
+    } catch (_) {
+      // La sincronización es auxiliar. Un fallo temporal no debe detener cámara ni captura.
+    } finally {
+      syncBusy = false;
+    }
+
+    if (repeatImmediately) window.setTimeout(syncLiveState, 0);
+  }
+
+  function startLiveSync() {
+    if (syncTimer) window.clearInterval(syncTimer);
+    syncTimer = window.setInterval(syncLiveState, LIVE_SYNC_INTERVAL_MS);
+    window.setTimeout(syncLiveState, 500);
+  }
+
   async function performAttendeeAction(attendee, action, awardType, source) {
     try {
       let payload;
@@ -551,13 +680,23 @@
         );
       }
       setScannerMessage(payload.message || 'Cambio registrado.', 'success');
+      updateAttendeeRow(payload.attendee);
       if (currentResultAttendee?.id === payload.attendee?.id) {
         renderScanResult(payload.attendee, payload.message, payload.code);
       }
-      await runManualSearch();
+      await runManualSearch(false);
+      window.setTimeout(syncLiveState, 80);
     } catch (error) {
+      const current = error.payload?.attendee;
+      if (current) {
+        updateAttendeeRow(current);
+        if (currentResultAttendee?.id === current.id) {
+          renderScanResult(current, error.payload?.message || error.message, error.payload?.code);
+        }
+      }
       setScannerMessage(error.payload?.message || error.message, 'danger');
-      await runManualSearch();
+      await runManualSearch(false);
+      window.setTimeout(syncLiveState, 80);
     }
   }
 
@@ -597,13 +736,18 @@
     return card;
   }
 
-  async function runManualSearch() {
+  async function runManualSearch(silent = false) {
     if (!manualResults) return;
     const query = String(manualInput?.value || '').trim();
-    manualResults.replaceChildren();
-    if (!query) return;
+    if (!query) {
+      manualResults.replaceChildren();
+      return;
+    }
 
-    manualResults.appendChild(createElement('p', 'muted', 'Buscando…'));
+    if (!silent) {
+      manualResults.replaceChildren();
+      manualResults.appendChild(createElement('p', 'muted', 'Buscando…'));
+    }
     try {
       const response = await fetch(`/admin/eventos/${encodeURIComponent(eventId)}/buscar?q=${encodeURIComponent(query)}`, {
         headers: { Accept: 'application/json' }
@@ -632,13 +776,22 @@
         { award_type: awardType, source: 'SCAN' }
       );
       renderScanResult(payload.attendee, payload.message, payload.code);
+      updateAttendeeRow(payload.attendee);
       setScannerMessage(payload.message || 'Premio registrado.', 'success');
       playScanFeedback('AWARD_DELIVERED', true);
+      window.setTimeout(syncLiveState, 80);
     } catch (error) {
       const message = error.payload?.message || error.message;
+      const current = error.payload?.attendee;
+      if (current) {
+        updateAttendeeRow(current);
+        renderScanResult(current, message, error.payload?.code);
+      } else {
+        hideAwardButtons();
+      }
       setScannerMessage(message, 'danger');
       playScanFeedback(error.payload?.code, false);
-      hideAwardButtons();
+      window.setTimeout(syncLiveState, 80);
     } finally {
       requestBusy = false;
       if (prizeButton) prizeButton.disabled = false;
@@ -657,13 +810,21 @@
   consolationButton?.addEventListener('pointerdown', ensureAudioReady);
   prizeButton?.addEventListener('click', () => deliverFromScan('PREMIO'));
   consolationButton?.addEventListener('click', () => deliverFromScan('CONSOLACION'));
-  manualButton?.addEventListener('click', runManualSearch);
+  manualButton?.addEventListener('click', () => runManualSearch(false));
   manualInput?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      runManualSearch();
+      runManualSearch(false);
     }
   });
 
-  window.addEventListener('pagehide', stopCamera);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) syncLiveState();
+  });
+  startLiveSync();
+
+  window.addEventListener('pagehide', () => {
+    if (syncTimer) window.clearInterval(syncTimer);
+    stopCamera();
+  });
 })();

@@ -96,7 +96,7 @@ async function index(req, res, next) {
       title: 'Asistencia a eventos',
       events,
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.42'
+      pageStyles: '/css/events.css?v=1.0.43'
     });
   } catch (error) {
     return next(error);
@@ -113,7 +113,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.42'
+      pageStyles: '/css/events.css?v=1.0.43'
     });
   } catch (error) {
     return next(error);
@@ -145,7 +145,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.42'
+          pageStyles: '/css/events.css?v=1.0.43'
         });
       } catch (renderError) {
         return next(renderError);
@@ -165,16 +165,18 @@ async function show(req, res, next) {
         message: 'No existe el evento solicitado.'
       });
     }
+    const latestLogId = await eventService.getLatestEventLogId(event.id);
     const attendees = await eventService.listEventAttendees(event.id);
     return res.render('admin/events/show', {
       title: event.event_name,
       event,
       attendees,
+      latestLogId,
       formatDate,
       formatDateTime,
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
-      pageStyles: '/css/events.css?v=1.0.42'
+      pageStyles: '/css/events.css?v=1.0.43'
     });
   } catch (error) {
     return next(error);
@@ -191,6 +193,32 @@ async function search(req, res, next) {
       attendees: attendees.map((attendee) => serializeAttendee(event, attendee))
     });
   } catch (error) {
+    return next(error);
+  }
+}
+
+async function liveState(req, res, next) {
+  try {
+    const result = await eventService.getEventLiveChanges(req.params.eventId, req.query.desde);
+    return res.json({
+      ok: true,
+      latestLogId: result.latestLogId,
+      hasMore: result.hasMore,
+      event: {
+        id: Number(result.event.id),
+        type: result.event.event_type,
+        status: result.event.status,
+        invitedCount: Number(result.event.invited_count || 0),
+        attendedCount: Number(result.event.attended_count || 0),
+        prizeCount: Number(result.event.prize_count || 0),
+        consolationCount: Number(result.event.consolation_count || 0)
+      },
+      attendees: result.attendees.map((attendee) => serializeAttendee(result.event, attendee))
+    });
+  } catch (error) {
+    if (error.status && error.status < 500) {
+      return res.status(error.status).json({ ok: false, code: error.code, message: error.message });
+    }
     return next(error);
   }
 }
@@ -311,25 +339,13 @@ async function award(req, res, next) {
     return res.redirect(`/admin/eventos/${result.event.id}`);
   } catch (error) {
     if (wantsJson(req) && error.status && error.status < 500) {
-      return res.status(error.status).json({ ok: false, code: error.code, message: error.message });
+      return res.status(error.status).json({
+        ok: false,
+        code: error.code,
+        message: error.message,
+        attendee: error.attendee && error.event ? serializeAttendee(error.event, error.attendee) : undefined
+      });
     }
-    if (error.status && error.status < 500) {
-      setFlash(req, 'danger', error.message);
-      return res.redirect(`/admin/eventos/${encodeURIComponent(req.params.eventId)}`);
-    }
-    return next(error);
-  }
-}
-
-async function enableAwards(req, res, next) {
-  try {
-    const event = await eventService.enableAwardsForEvent(
-      req.params.eventId,
-      currentActor(req)
-    );
-    setFlash(req, 'success', 'Modo Fiesta con Premios habilitado. Ya puedes registrar Premio o Consolación directamente después de escanear.');
-    return res.redirect(`/admin/eventos/${event.id}`);
-  } catch (error) {
     if (error.status && error.status < 500) {
       setFlash(req, 'danger', error.message);
       return res.redirect(`/admin/eventos/${encodeURIComponent(req.params.eventId)}`);
@@ -358,8 +374,8 @@ async function setStatus(req, res, next) {
 
 async function exportXlsx(req, res, next) {
   try {
-    const event = await eventService.requireEvent(req.params.eventId);
-    const attendees = await eventService.listEventAttendees(event.id);
+    const snapshot = await eventService.getEventSnapshot(req.params.eventId);
+    const { event, attendees } = snapshot;
     const buffer = await eventExportService.buildXlsxBuffer(event, attendees);
     const filename = `EVENTO_${event.id}_${cleanFilename(event.event_name)}.xlsx`;
     res.set({
@@ -375,8 +391,8 @@ async function exportXlsx(req, res, next) {
 
 async function exportPdf(req, res, next) {
   try {
-    const event = await eventService.requireEvent(req.params.eventId);
-    const attendees = await eventService.listEventAttendees(event.id);
+    const snapshot = await eventService.getEventSnapshot(req.params.eventId);
+    const { event, attendees } = snapshot;
     const buffer = await eventExportService.buildPdfBuffer(event, attendees);
     const filename = `EVENTO_${event.id}_${cleanFilename(event.event_name)}.pdf`;
     res.set({
@@ -396,10 +412,10 @@ module.exports = {
   create,
   show,
   search,
+  liveState,
   scan,
   checkIn,
   award,
-  enableAwards,
   setStatus,
   exportXlsx,
   exportPdf,

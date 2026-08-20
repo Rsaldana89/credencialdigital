@@ -214,9 +214,9 @@ async function requireEvent(eventId, connection = pool) {
   return event;
 }
 
-async function listEventAttendees(eventId) {
+async function listEventAttendees(eventId, connection = pool) {
   const id = parsePositiveId(eventId, 'Evento');
-  const [rows] = await pool.execute(
+  const [rows] = await connection.execute(
     `SELECT *
      FROM chc_event_attendees
      WHERE event_id = ?
@@ -259,23 +259,25 @@ async function searchEventAttendees(eventId, search = '') {
   return rows.slice(0, 40);
 }
 
-async function getAttendeeById(eventId, attendeeId, connection = pool) {
+async function getAttendeeById(eventId, attendeeId, connection = pool, forUpdate = false) {
   const eId = parsePositiveId(eventId, 'Evento');
   const aId = parsePositiveId(attendeeId, 'Asistente');
+  const lockSql = forUpdate ? ' FOR UPDATE' : '';
   const [rows] = await connection.execute(
-    `SELECT * FROM chc_event_attendees WHERE id = ? AND event_id = ? LIMIT 1`,
+    `SELECT * FROM chc_event_attendees WHERE id = ? AND event_id = ? LIMIT 1${lockSql}`,
     [aId, eId]
   );
   return rows[0] || null;
 }
 
-async function getAttendeeByEmployeeNumber(eventId, employeeNumber, connection = pool) {
+async function getAttendeeByEmployeeNumber(eventId, employeeNumber, connection = pool, forUpdate = false) {
   const eId = parsePositiveId(eventId, 'Evento');
   const normalized = employeeService.normalizeEmployeeNumber(employeeNumber);
   if (!normalized) return null;
 
+  const lockSql = forUpdate ? ' FOR UPDATE' : '';
   const [rows] = await connection.execute(
-    `SELECT * FROM chc_event_attendees WHERE event_id = ? AND employee_number = ? LIMIT 1`,
+    `SELECT * FROM chc_event_attendees WHERE event_id = ? AND employee_number = ? LIMIT 1${lockSql}`,
     [eId, normalized]
   );
   if (rows[0]) return rows[0];
@@ -283,12 +285,14 @@ async function getAttendeeByEmployeeNumber(eventId, employeeNumber, connection =
   const lookupKey = employeeService.employeeNumberLookupKey(normalized);
   if (!lookupKey) return null;
   const [allRows] = await connection.execute(
-    `SELECT * FROM chc_event_attendees WHERE event_id = ?`,
+    `SELECT id, employee_number FROM chc_event_attendees WHERE event_id = ?`,
     [eId]
   );
-  return allRows.find(
+  const normalizedMatch = allRows.find(
     (row) => employeeService.employeeNumberLookupKey(row.employee_number) === lookupKey
-  ) || null;
+  );
+  if (!normalizedMatch) return null;
+  return getAttendeeById(eId, normalizedMatch.id, connection, forUpdate);
 }
 
 async function logAction(connection, {
@@ -347,7 +351,7 @@ async function checkInByEmployeeNumber(eventId, employeeNumber, actor, method = 
       throw makeUserError('El evento está cerrado.', 'EVENT_CLOSED', 409);
     }
 
-    const attendee = await getAttendeeByEmployeeNumber(id, employeeNumber, connection);
+    const attendee = await getAttendeeByEmployeeNumber(id, employeeNumber, connection, true);
     if (!attendee) {
       await logAction(connection, {
         eventId: id,
@@ -380,7 +384,7 @@ async function checkInByEmployeeNumber(eventId, employeeNumber, actor, method = 
       actor
     });
 
-    const updated = await getAttendeeById(id, attendee.id, connection);
+    const updated = await getAttendeeById(id, attendee.id, connection, true);
     await connection.commit();
     return {
       event,
@@ -421,19 +425,22 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
       throw makeUserError('Este evento no maneja premios.', 'AWARDS_NOT_ALLOWED', 409);
     }
 
-    const attendee = await getAttendeeById(id, aId, connection);
+    const attendee = await getAttendeeById(id, aId, connection, true);
     if (!attendee) throw makeUserError('El empleado no forma parte de este evento.', 'ATTENDEE_NOT_FOUND', 404);
     if (!attendee.attended_at) {
       throw makeUserError('Primero registra la asistencia del empleado.', 'ATTENDANCE_REQUIRED', 409);
     }
     if (attendee.award_type) {
-      throw makeUserError(
+      const error = makeUserError(
         attendee.award_type === 'PREMIO'
           ? 'Este empleado ya recibió Premio.'
           : 'Este empleado ya recibió Premio de consolación.',
         'AWARD_ALREADY_DELIVERED',
         409
       );
+      error.attendee = attendee;
+      error.event = event;
+      throw error;
     }
 
     const [result] = await connection.execute(
@@ -444,11 +451,19 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
     );
 
     if (result.affectedRows !== 1) {
-      throw makeUserError(
-        'El premio ya fue registrado desde otra sesión. Actualiza la información.',
+      const current = await getAttendeeById(id, aId, connection, true);
+      const error = makeUserError(
+        current?.award_type === 'PREMIO'
+          ? 'Este empleado ya recibió Premio en otro dispositivo.'
+          : current?.award_type === 'CONSOLACION'
+            ? 'Este empleado ya recibió Premio de consolación en otro dispositivo.'
+            : 'El premio ya fue registrado desde otra sesión.',
         'AWARD_CONFLICT',
         409
       );
+      error.attendee = current;
+      error.event = event;
+      throw error;
     }
 
     await logAction(connection, {
@@ -460,7 +475,7 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
       actor
     });
 
-    const updated = await getAttendeeById(id, aId, connection);
+    const updated = await getAttendeeById(id, aId, connection, true);
     await connection.commit();
     return { event, attendee: updated };
   } catch (error) {
@@ -471,34 +486,76 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
   }
 }
 
-async function enableAwardsForEvent(eventId, actor) {
+async function getEventSnapshot(eventId) {
   const id = parsePositiveId(eventId, 'Evento');
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const event = await requireEvent(id, connection);
-    if (event.status !== 'OPEN') {
-      throw makeUserError('El evento está cerrado. Reábrelo antes de habilitar premios.', 'EVENT_CLOSED', 409);
-    }
-
-    if (event.event_type !== 'FIESTA_PREMIOS') {
-      await connection.execute(
-        `UPDATE chc_events
-         SET event_type = 'FIESTA_PREMIOS', updated_at = NOW()
-         WHERE id = ?`,
-        [id]
-      );
-    }
-
-    const updated = await requireEvent(id, connection);
+    const attendees = await listEventAttendees(id, connection);
     await connection.commit();
-    return updated;
+    return { event, attendees };
   } catch (error) {
     await connection.rollback();
     throw error;
   } finally {
     connection.release();
   }
+}
+
+async function getLatestEventLogId(eventId, connection = pool) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const [rows] = await connection.execute(
+    `SELECT COALESCE(MAX(id), 0) AS latest_log_id
+     FROM chc_event_action_logs
+     WHERE event_id = ?`,
+    [id]
+  );
+  return Number(rows[0]?.latest_log_id || 0);
+}
+
+async function getEventLiveChanges(eventId, afterLogId = 0) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const since = Number.parseInt(String(afterLogId || '0'), 10);
+  const safeSince = Number.isSafeInteger(since) && since >= 0 ? since : 0;
+
+  const event = await requireEvent(id);
+  const [logs] = await pool.execute(
+    `SELECT id, attendee_id, action_type
+     FROM chc_event_action_logs
+     WHERE event_id = ? AND id > ?
+     ORDER BY id ASC
+     LIMIT 500`,
+    [id, safeSince]
+  );
+
+  const latestLogId = logs.length
+    ? Number(logs[logs.length - 1].id)
+    : safeSince;
+  const attendeeIds = [...new Set(
+    logs
+      .map((row) => Number(row.attendee_id || 0))
+      .filter((value) => Number.isSafeInteger(value) && value > 0)
+  )];
+
+  let attendees = [];
+  if (attendeeIds.length) {
+    const placeholders = attendeeIds.map(() => '?').join(',');
+    const [rows] = await pool.execute(
+      `SELECT *
+       FROM chc_event_attendees
+       WHERE event_id = ? AND id IN (${placeholders})`,
+      [id, ...attendeeIds]
+    );
+    attendees = rows;
+  }
+
+  return {
+    event,
+    attendees,
+    latestLogId,
+    hasMore: logs.length === 500
+  };
 }
 
 async function setEventStatus(eventId, status, actor) {
@@ -591,7 +648,9 @@ module.exports = {
   checkInByEmployeeNumber,
   checkInByAttendeeId,
   deliverAward,
-  enableAwardsForEvent,
+  getEventSnapshot,
+  getLatestEventLogId,
+  getEventLiveChanges,
   setEventStatus,
   logScanFailure,
   formatEmployeeNumber,

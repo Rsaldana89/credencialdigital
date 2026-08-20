@@ -15,6 +15,7 @@ router.get('/:eventId/buscar', eventController.search);
 router.post('/:eventId/escanear', verifyCsrfToken, eventController.scan);
 router.post('/:eventId/asistentes/:attendeeId/asistencia', verifyCsrfToken, eventController.checkIn);
 router.post('/:eventId/asistentes/:attendeeId/premio', verifyCsrfToken, eventController.award);
+router.post('/:eventId/premios/habilitar', verifyCsrfToken, eventController.enableAwards);
 router.post('/:eventId/estado', verifyCsrfToken, eventController.setStatus);
 router.get('/:eventId/exportar.xlsx', eventController.exportXlsx);
 router.get('/:eventId/exportar.pdf', eventController.exportPdf);

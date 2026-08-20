@@ -96,7 +96,7 @@ async function index(req, res, next) {
       title: 'Asistencia a eventos',
       events,
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.41'
+      pageStyles: '/css/events.css?v=1.0.42'
     });
   } catch (error) {
     return next(error);
@@ -113,7 +113,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.41'
+      pageStyles: '/css/events.css?v=1.0.42'
     });
   } catch (error) {
     return next(error);
@@ -145,7 +145,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.41'
+          pageStyles: '/css/events.css?v=1.0.42'
         });
       } catch (renderError) {
         return next(renderError);
@@ -174,7 +174,7 @@ async function show(req, res, next) {
       formatDateTime,
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
-      pageStyles: '/css/events.css?v=1.0.41'
+      pageStyles: '/css/events.css?v=1.0.42'
     });
   } catch (error) {
     return next(error);
@@ -321,6 +321,23 @@ async function award(req, res, next) {
   }
 }
 
+async function enableAwards(req, res, next) {
+  try {
+    const event = await eventService.enableAwardsForEvent(
+      req.params.eventId,
+      currentActor(req)
+    );
+    setFlash(req, 'success', 'Modo Fiesta con Premios habilitado. Ya puedes registrar Premio o Consolación directamente después de escanear.');
+    return res.redirect(`/admin/eventos/${event.id}`);
+  } catch (error) {
+    if (error.status && error.status < 500) {
+      setFlash(req, 'danger', error.message);
+      return res.redirect(`/admin/eventos/${encodeURIComponent(req.params.eventId)}`);
+    }
+    return next(error);
+  }
+}
+
 async function setStatus(req, res, next) {
   try {
     const event = await eventService.setEventStatus(
@@ -382,6 +399,7 @@ module.exports = {
   scan,
   checkIn,
   award,
+  enableAwards,
   setStatus,
   exportXlsx,
   exportPdf,

@@ -40,6 +40,63 @@
   let lastQrValue = '';
   let lastQrAt = 0;
   let currentResultAttendee = null;
+  let audioContext = null;
+
+  function ensureAudioReady() {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return null;
+      if (!audioContext) audioContext = new AudioContextClass();
+      if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+      return audioContext;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function playTone(frequency, startDelay = 0, duration = 0.09, volume = 0.16) {
+    const context = ensureAudioReady();
+    if (!context || context.state === 'closed') return;
+    try {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const startAt = context.currentTime + startDelay;
+      const stopAt = startAt + duration;
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, startAt);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, stopAt);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(startAt);
+      oscillator.stop(stopAt + 0.02);
+    } catch (_) {
+      // El sonido es una ayuda; un fallo de audio no debe detener el escáner.
+    }
+  }
+
+  function playScanFeedback(code, ok = true) {
+    if (!ok) {
+      playTone(220, 0, 0.16, 0.14);
+      if (navigator.vibrate) navigator.vibrate([90, 55, 90]);
+      return;
+    }
+    if (code === 'ALREADY_ATTENDED') {
+      playTone(660, 0, 0.07, 0.14);
+      playTone(880, 0.105, 0.09, 0.16);
+      if (navigator.vibrate) navigator.vibrate([55, 45, 55]);
+      return;
+    }
+    if (code === 'AWARD_DELIVERED') {
+      playTone(880, 0, 0.07, 0.14);
+      playTone(1175, 0.09, 0.11, 0.17);
+      if (navigator.vibrate) navigator.vibrate(90);
+      return;
+    }
+    playTone(880, 0, 0.1, 0.16);
+    if (navigator.vibrate) navigator.vibrate(70);
+  }
 
   function setScannerMessage(message, type = 'neutral') {
     if (!scannerMessage) return;
@@ -96,6 +153,7 @@
     }
 
     if (isFiesta && attendee.canAward) {
+      resultStatus.textContent = `${resultStatus.textContent} Selecciona ahora el tipo de premio si corresponde.`;
       if (prizeButton) prizeButton.hidden = false;
       if (consolationButton) consolationButton.hidden = false;
     }
@@ -148,11 +206,12 @@
       });
       renderScanResult(payload.attendee, payload.message, payload.code);
       setScannerMessage(payload.message || 'Asistencia validada.', 'success');
-      if (navigator.vibrate) navigator.vibrate(70);
+      playScanFeedback(payload.code, true);
     } catch (error) {
       const message = error.payload?.message || error.message || 'No fue posible validar el QR.';
       renderScanResult(null, message, error.payload?.code);
       setScannerMessage(message, 'danger');
+      playScanFeedback(error.payload?.code, false);
     } finally {
       requestBusy = false;
     }
@@ -562,7 +621,11 @@
   }
 
   async function deliverFromScan(awardType) {
-    if (!currentResultAttendee?.id || !currentResultAttendee.canAward) return;
+    if (!currentResultAttendee?.id || !currentResultAttendee.canAward || requestBusy) return;
+    requestBusy = true;
+    if (prizeButton) prizeButton.disabled = true;
+    if (consolationButton) consolationButton.disabled = true;
+    setScannerMessage(awardType === 'PREMIO' ? 'Registrando Premio…' : 'Registrando Consolación…');
     try {
       const payload = await postJson(
         `/admin/eventos/${encodeURIComponent(eventId)}/asistentes/${encodeURIComponent(currentResultAttendee.id)}/premio`,
@@ -570,19 +633,28 @@
       );
       renderScanResult(payload.attendee, payload.message, payload.code);
       setScannerMessage(payload.message || 'Premio registrado.', 'success');
+      playScanFeedback('AWARD_DELIVERED', true);
     } catch (error) {
       const message = error.payload?.message || error.message;
       setScannerMessage(message, 'danger');
+      playScanFeedback(error.payload?.code, false);
       hideAwardButtons();
+    } finally {
+      requestBusy = false;
+      if (prizeButton) prizeButton.disabled = false;
+      if (consolationButton) consolationButton.disabled = false;
     }
   }
 
   setCameraPlaceholderVisible(true);
   setCameraButtons(false);
 
+  startButton?.addEventListener('pointerdown', ensureAudioReady);
   startButton?.addEventListener('click', startCamera);
   switchButton?.addEventListener('click', switchCamera);
   stopButton?.addEventListener('click', stopCamera);
+  prizeButton?.addEventListener('pointerdown', ensureAudioReady);
+  consolationButton?.addEventListener('pointerdown', ensureAudioReady);
   prizeButton?.addEventListener('click', () => deliverFromScan('PREMIO'));
   consolationButton?.addEventListener('click', () => deliverFromScan('CONSOLACION'));
   manualButton?.addEventListener('click', runManualSearch);

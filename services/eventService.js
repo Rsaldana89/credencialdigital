@@ -471,6 +471,36 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
   }
 }
 
+async function enableAwardsForEvent(eventId, actor) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const event = await requireEvent(id, connection);
+    if (event.status !== 'OPEN') {
+      throw makeUserError('El evento está cerrado. Reábrelo antes de habilitar premios.', 'EVENT_CLOSED', 409);
+    }
+
+    if (event.event_type !== 'FIESTA_PREMIOS') {
+      await connection.execute(
+        `UPDATE chc_events
+         SET event_type = 'FIESTA_PREMIOS', updated_at = NOW()
+         WHERE id = ?`,
+        [id]
+      );
+    }
+
+    const updated = await requireEvent(id, connection);
+    await connection.commit();
+    return updated;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 async function setEventStatus(eventId, status, actor) {
   const id = parsePositiveId(eventId, 'Evento');
   const nextStatus = String(status || '').trim().toUpperCase();
@@ -561,6 +591,7 @@ module.exports = {
   checkInByEmployeeNumber,
   checkInByAttendeeId,
   deliverAward,
+  enableAwardsForEvent,
   setEventStatus,
   logScanFailure,
   formatEmployeeNumber,

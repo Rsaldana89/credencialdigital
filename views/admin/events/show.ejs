@@ -18,6 +18,19 @@
       </span>
     </div>
 
+    <% if (event.event_type !== 'FIESTA_PREMIOS' && event.status === 'OPEN') { %>
+      <div class="event-awards-enable-banner">
+        <div>
+          <strong>Premios desactivados para este evento</strong>
+          <span>Este evento fue creado como General. Activa el modo de premios una sola vez para poder marcar Premio o Consolación inmediatamente después de escanear, sin buscar al empleado en la lista.</span>
+        </div>
+        <form method="post" action="/admin/eventos/<%= event.id %>/premios/habilitar">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="button button-primary" type="submit">Activar premios</button>
+        </form>
+      </div>
+    <% } %>
+
     <div class="event-scanner-grid">
       <div class="event-camera-box">
         <video id="event-scanner-video" class="event-scanner-video" playsinline muted></video>
@@ -53,8 +66,8 @@
       </div>
       <div class="event-result-actions" id="event-result-actions">
         <% if (event.event_type === 'FIESTA_PREMIOS') { %>
-          <button class="button button-primary" type="button" id="event-result-prize" hidden>Entregar Premio</button>
-          <button class="button button-secondary" type="button" id="event-result-consolation" hidden>Premio de consolación</button>
+          <button class="button button-primary" type="button" id="event-result-prize" hidden>Marcar Premio</button>
+          <button class="button button-secondary" type="button" id="event-result-consolation" hidden>Marcar Consolación</button>
         <% } %>
       </div>
     </div>
@@ -180,4 +193,4 @@
 </section>
 
 <script src="/vendor/jsqr/jsQR.js?v=1.0.41" defer></script>
-<script src="/js/events-show.js?v=1.0.41" defer></script>
+<script src="/js/events-show.js?v=1.0.42" defer></script>

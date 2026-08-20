@@ -265,6 +265,24 @@
 .event-camera-buttons { margin-top: 10px; }
 .event-scanner-controls .help-text { margin-bottom: 0; }
 
+.event-awards-enable-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border: 1px solid #dfc58d;
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #5b451c;
+}
+.event-awards-enable-banner > div { min-width: 0; }
+.event-awards-enable-banner strong,
+.event-awards-enable-banner span { display: block; }
+.event-awards-enable-banner span { margin-top: 3px; font-size: .82rem; line-height: 1.4; }
+.event-awards-enable-banner form { flex: 0 0 auto; margin: 0; }
+
 .event-scan-result {
   display: flex;
   align-items: center;
@@ -283,6 +301,7 @@
 .event-scan-result__main strong { margin-top: 3px; font-size: 1rem; }
 .event-scan-result__main span:not(.event-result-kicker) { margin-top: 2px; color: #666a70; font-size: .8rem; }
 .event-result-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.event-result-actions .button { min-width: 150px; }
 
 .event-page-content { display: grid; gap: 18px; }
 .event-page-topbar {
@@ -362,6 +381,9 @@
   .event-scanner-message { padding: 8px 9px; font-size: .78rem; }
   .event-camera-buttons { margin-top: 7px; }
   .event-camera-buttons .button { min-height: 36px; padding: 7px 10px; font-size: .8rem; }
+  .event-awards-enable-banner { align-items: stretch; flex-direction: column; padding: 9px; }
+  .event-awards-enable-banner form,
+  .event-awards-enable-banner .button { width: 100%; }
   .event-scan-result { align-items: stretch; flex-direction: column; padding: 10px; }
   .event-result-actions { justify-content: stretch; }
   .event-result-actions .button { flex: 1; }

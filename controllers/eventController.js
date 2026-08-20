@@ -1,6 +1,7 @@
 const employeeService = require('../services/employeeService');
 const eventService = require('../services/eventService');
 const eventExportService = require('../services/eventExportService');
+const { formatUtcDateTimeInEventZone } = require('../utils/timeZone');
 
 function formatDate(value) {
   if (!value) return 'No disponible';
@@ -55,10 +56,10 @@ function serializeAttendee(event, attendee) {
     startDate: formatDate(attendee.start_date_snapshot),
     tenure: eventService.calculateTenure(attendee.start_date_snapshot, String(event.event_date || '').slice(0, 10)),
     attended,
-    attendedAt: attendee.attended_at ? formatDateTime(attendee.attended_at) : null,
+    attendedAt: attendee.attended_at ? formatUtcDateTimeInEventZone(attendee.attended_at) : null,
     attendanceMethod: attendee.attendance_method || null,
     awardType: attendee.award_type || null,
-    awardDeliveredAt: attendee.award_delivered_at ? formatDateTime(attendee.award_delivered_at) : null,
+    awardDeliveredAt: attendee.award_delivered_at ? formatUtcDateTimeInEventZone(attendee.award_delivered_at) : null,
     canCheckIn: isOpen && !attended,
     canAward: isOpen && fiesta && attended && !hasAward,
     canPrize: isOpen && fiesta && attended && !hasAward,
@@ -96,7 +97,7 @@ async function index(req, res, next) {
       title: 'Asistencia a eventos',
       events,
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.43'
+      pageStyles: '/css/events.css?v=1.0.45'
     });
   } catch (error) {
     return next(error);
@@ -113,7 +114,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.43'
+      pageStyles: '/css/events.css?v=1.0.45'
     });
   } catch (error) {
     return next(error);
@@ -145,7 +146,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.43'
+          pageStyles: '/css/events.css?v=1.0.45'
         });
       } catch (renderError) {
         return next(renderError);
@@ -174,9 +175,10 @@ async function show(req, res, next) {
       latestLogId,
       formatDate,
       formatDateTime,
+      formatRecordedDateTime: formatUtcDateTimeInEventZone,
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
-      pageStyles: '/css/events.css?v=1.0.43'
+      pageStyles: '/css/events.css?v=1.0.45'
     });
   } catch (error) {
     return next(error);

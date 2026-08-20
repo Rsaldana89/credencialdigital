@@ -190,25 +190,27 @@
 .event-scanner-head p { margin: 0; color: #666a70; font-size: .82rem; }
 .event-scanner-grid {
   display: grid;
-  grid-template-columns: minmax(260px, .85fr) minmax(300px, 1.15fr);
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 1fr);
   gap: 14px;
   align-items: stretch;
 }
 .event-camera-box {
   position: relative;
-  min-height: 150px;
-  max-height: 190px;
+  height: clamp(250px, 23vw, 320px);
+  min-height: 250px;
+  max-height: 320px;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #18191b;
-  border: 1px solid #2d2f33;
+  border: 2px solid #34363a;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
 }
 .event-scanner-video {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 150px;
-  max-height: 190px;
+  min-height: 250px;
+  max-height: 320px;
   object-fit: cover;
   background: #111;
 }
@@ -220,11 +222,11 @@
   pointer-events: none;
 }
 .event-camera-overlay span {
-  width: min(54%, 210px);
+  width: min(66%, 270px);
   aspect-ratio: 1;
-  border: 2px solid rgba(255,255,255,.92);
-  border-radius: 14px;
-  box-shadow: 0 0 0 999px rgba(0,0,0,.16);
+  border: 3px solid rgba(255,255,255,.96);
+  border-radius: 16px;
+  box-shadow: 0 0 0 999px rgba(0,0,0,.22), 0 0 0 2px rgba(109,23,37,.42);
 }
 .event-camera-placeholder {
   position: absolute;
@@ -355,7 +357,7 @@
 @media (max-width: 940px) {
   .event-list-grid { grid-template-columns: 1fr; }
   .event-employee-picker { grid-template-columns: 1fr; }
-  .event-scanner-grid { grid-template-columns: minmax(230px, .8fr) 1.2fr; }
+  .event-scanner-grid { grid-template-columns: minmax(320px, 1fr) minmax(300px, 1fr); }
 }
 
 @media (max-width: 760px) {
@@ -376,7 +378,12 @@
   .event-scanner-head p { display: none; }
   .event-scanner-grid { grid-template-columns: 1fr; gap: 8px; }
   .event-camera-box,
-  .event-scanner-video { min-height: 128px; max-height: 158px; }
+  .event-scanner-video {
+    height: clamp(220px, 68vw, 290px);
+    min-height: 220px;
+    max-height: 290px;
+  }
+  .event-camera-overlay span { width: min(70%, 250px); }
   .event-scanner-controls .help-text { display: none; }
   .event-scanner-message { padding: 8px 9px; font-size: .78rem; }
   .event-camera-buttons { margin-top: 7px; }
@@ -441,6 +448,11 @@
   .event-attendance-section { padding: 16px; }
   .event-scanner-head h1 { font-size: 1.05rem; }
   .event-camera-box,
-  .event-scanner-video { min-height: 112px; max-height: 140px; }
+  .event-scanner-video {
+    height: clamp(210px, 70vw, 270px);
+    min-height: 210px;
+    max-height: 270px;
+  }
+  .event-camera-overlay span { width: min(72%, 235px); }
   .event-table td { grid-template-columns: 88px minmax(0, 1fr); }
 }

@@ -134,7 +134,7 @@
                 <td data-label="Asistencia" data-role="attendance">
                   <% if (attendee.attended_at) { %>
                     <span class="pill pill-success">Asistió</span>
-                    <span class="table-secondary"><%= formatDateTime(attendee.attended_at) %> · <%= attendee.attendance_method || '' %></span>
+                    <span class="table-secondary"><%= formatRecordedDateTime(attendee.attended_at) %> · <%= attendee.attendance_method || '' %></span>
                   <% } else if (event.status === 'OPEN') { %>
                     <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/asistencia">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -148,7 +148,7 @@
                   <td data-label="Premios" data-role="award">
                     <% if (attendee.award_type) { %>
                       <span class="pill pill-success"><%= attendee.award_type === 'PREMIO' ? 'Premio entregado' : 'Consolación entregada' %></span>
-                      <span class="table-secondary"><%= formatDateTime(attendee.award_delivered_at) %></span>
+                      <span class="table-secondary"><%= formatRecordedDateTime(attendee.award_delivered_at) %></span>
                     <% } else if (!attendee.attended_at) { %>
                       <span class="pill pill-muted">Requiere asistencia</span>
                     <% } else if (event.status !== 'OPEN') { %>
@@ -180,5 +180,5 @@
   </div>
 </section>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.41" defer></script>
-<script src="/js/events-show.js?v=1.0.44" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.45" defer></script>
+<script src="/js/events-show.js?v=1.0.45" defer></script>

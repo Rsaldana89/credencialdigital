@@ -2,6 +2,7 @@ const { PassThrough } = require('stream');
 const archiver = require('archiver');
 const sharp = require('sharp');
 const eventService = require('./eventService');
+const { formatUtcDateTimeInEventZone } = require('../utils/timeZone');
 
 function xmlEscape(value) {
   return String(value ?? '')
@@ -37,11 +38,11 @@ function buildExportRows(event, attendees) {
     start_date: formatDate(attendee.start_date_snapshot),
     tenure: eventService.calculateTenure(attendee.start_date_snapshot, referenceDate),
     attended: attendee.attended_at ? 'Sí' : 'No',
-    attended_at: formatDateTime(attendee.attended_at),
+    attended_at: formatUtcDateTimeInEventZone(attendee.attended_at, ''),
     attendance_method: attendee.attendance_method || '',
     prize: attendee.award_type === 'PREMIO' ? 'Sí' : 'No',
     consolation: attendee.award_type === 'CONSOLACION' ? 'Sí' : 'No',
-    award_at: formatDateTime(attendee.award_delivered_at),
+    award_at: formatUtcDateTimeInEventZone(attendee.award_delivered_at, ''),
     award_by: attendee.award_delivered_by || ''
   }));
 }

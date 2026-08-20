@@ -1,3 +1,13 @@
+## Cambios de la versión 1.0.45
+
+- Las horas automáticas de **asistencia** y **entrega de premios** que MySQL guarda en UTC ahora se muestran convertidas a `America/Mexico_City` (UTC-6 para la operación actual), sin cambiar la estructura ni reescribir los datos de la base.
+- La corrección también se aplica a registros anteriores ya guardados en UTC, por ejemplo `21:51` se muestra como `15:51` en México.
+- Excel y PDF usan la misma conversión de zona horaria para las horas de asistencia y entrega.
+- La fecha programada del evento se conserva tal como fue capturada; no se desplaza seis horas.
+- El visor de cámara/QR es considerablemente más grande en PC y celular y la guía central del QR es más visible.
+- Se conserva la sincronización automática cada **30 segundos** y la consulta inmediata a MySQL en cada escaneo o entrega de premio.
+- No requiere cambios SQL. La zona puede ajustarse opcionalmente con `EVENT_TIME_ZONE`; si no se define, se usa `America/Mexico_City`.
+
 ## Cambios de la versión 1.0.44
 
 - La sincronización automática entre dispositivos se ejecuta cada **30 segundos** para reducir todavía más la carga continua sobre Railway y MySQL.

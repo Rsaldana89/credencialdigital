@@ -19,6 +19,14 @@ function setFlash(req, type, message) {
   req.session.flash = { type, message };
 }
 
+function getAdminReturnTo(req, fallback = '/admin/empleados') {
+  const value = String(req.body?.return_to || '').trim();
+  if (value.startsWith('/admin') && !value.startsWith('//') && !value.includes('\\')) {
+    return value;
+  }
+  return fallback;
+}
+
 
 function getSafeEmployeeNumber(value, fallback = 'empleado') {
   const normalized = employeeService.normalizeEmployeeNumber(value);
@@ -111,11 +119,23 @@ async function dashboard(req, res, next) {
 async function employees(req, res, next) {
   try {
     const search = String(req.query.q || '').trim().slice(0, 100);
+    let qrAutoSync = { generatedCount: 0, reactivatedCount: 0, busy: false };
+
+    try {
+      // Al consultar el listado, completa silenciosamente los QR que falten.
+      // Se ejecuta antes del SELECT para que la tabla ya muestre el estado actualizado.
+      qrAutoSync = await employeeService.generateMissingTokens();
+    } catch (error) {
+      // Un problema en la generación automática no debe impedir administrar empleados.
+      console.error('No fue posible completar QR faltantes automáticamente:', error.message);
+    }
+
     const employeeList = await employeeService.listActiveEmployees(search);
     return res.render('admin/employees', {
       title: 'Empleados activos',
       employees: employeeList,
       search,
+      qrAutoSync,
       formatDate
     });
   } catch (error) {
@@ -283,9 +303,13 @@ async function generateQr(req, res, next) {
   try {
     const mode = String(req.body.mode || 'individual');
     if (mode === 'missing') {
-      const generatedCount = await employeeService.generateMissingTokens();
-      setFlash(req, 'success', `Proceso terminado. Se generaron ${generatedCount} QR nuevos.`);
-      return res.redirect('/admin/empleados');
+      const result = await employeeService.generateMissingTokens();
+      const parts = [];
+      if (result.generatedCount) parts.push(`${result.generatedCount} QR nuevos`);
+      if (result.reactivatedCount) parts.push(`${result.reactivatedCount} QR reactivados`);
+      const summary = parts.length ? parts.join(' y ') : 'no había QR pendientes';
+      setFlash(req, 'success', `Proceso terminado: ${summary}.`);
+      return res.redirect(getAdminReturnTo(req, '/admin/empleados'));
     }
 
     const employeeNumber = req.body.employee_number;
@@ -293,7 +317,11 @@ async function generateQr(req, res, next) {
     setFlash(
       req,
       'success',
-      result.created ? 'QR generado correctamente.' : 'El empleado ya tenía un QR activo.'
+      result.created
+        ? 'QR generado correctamente.'
+        : result.reactivated
+          ? 'Se reactivó el QR existente del empleado.'
+          : 'El empleado ya tenía un QR activo.'
     );
     return res.redirect(`/admin/empleados/${encodeURIComponent(employeeNumber)}`);
   } catch (error) {
@@ -310,7 +338,7 @@ async function deactivateInactive(req, res, next) {
   try {
     const count = await employeeService.deactivateQrForInactiveEmployees();
     setFlash(req, 'success', `Proceso terminado. Se desactivaron ${count} QR.`);
-    return res.redirect('/admin');
+    return res.redirect(getAdminReturnTo(req, '/admin'));
   } catch (error) {
     return next(error);
   }

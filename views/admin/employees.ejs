@@ -6,17 +6,45 @@
   </div>
   <div class="page-actions">
     <a class="button button-secondary" href="/admin/fotografias/importar">Importar fotografías</a>
-    <form method="post" action="/admin/generar-qr">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <input type="hidden" name="mode" value="missing">
-      <button class="button button-secondary" type="submit">Generar QR faltantes</button>
-    </form>
     <form method="post" action="/admin/empleados/descargar-qrs">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button class="button button-primary" type="submit">Descargar paquete QR</button>
     </form>
   </div>
 </section>
+
+<% if (qrAutoSync && (qrAutoSync.generatedCount || qrAutoSync.reactivatedCount)) { %>
+  <div class="auto-sync-note" role="status">
+    <strong>QR actualizados automáticamente.</strong>
+    <% if (qrAutoSync.generatedCount) { %><span><%= qrAutoSync.generatedCount %> nuevo(s)</span><% } %>
+    <% if (qrAutoSync.reactivatedCount) { %><span><%= qrAutoSync.reactivatedCount %> reactivado(s)</span><% } %>
+  </div>
+<% } %>
+
+<details class="advanced-options">
+  <summary>Opciones avanzadas</summary>
+  <div class="advanced-options-body">
+    <div>
+      <strong>Generar QR faltantes</strong>
+      <p>Ejecuta manualmente la misma revisión automática de empleados activos.</p>
+      <form method="post" action="/admin/generar-qr">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="mode" value="missing">
+        <input type="hidden" name="return_to" value="/admin/empleados">
+        <button class="button button-secondary" type="submit">Generar QR faltantes</button>
+      </form>
+    </div>
+    <div>
+      <strong>Desactivar QR de inactivos</strong>
+      <p>Revoca QR activos de empleados en Baja o que ya no existen en personal.</p>
+      <form method="post" action="/admin/desactivar-bajas">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="return_to" value="/admin/empleados">
+        <button class="button button-danger" type="submit">Desactivar QR de inactivos</button>
+      </form>
+    </div>
+  </div>
+</details>
 
 <form class="search-bar" method="get" action="/admin/empleados">
   <label class="sr-only" for="q">Buscar empleado</label>

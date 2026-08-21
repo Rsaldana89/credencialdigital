@@ -227,6 +227,88 @@ tbody tr:hover { background: #fcfbf9; }
   .message-panel, .auth-card { padding: 28px 22px; }
 }
 
+
+/* Mantenimiento QR v1.0.46 */
+.auto-sync-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: -8px 0 18px;
+  padding: 10px 14px;
+  border: 1px solid #bddfcd;
+  border-radius: 11px;
+  background: var(--success-soft);
+  color: #145637;
+  font-size: .88rem;
+}
+.auto-sync-note span { font-weight: 700; }
+
+.advanced-options {
+  margin: 0 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.advanced-options-dashboard { margin-top: 18px; }
+.advanced-options > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  margin: 10px;
+  padding: 9px 14px;
+  border: 1px solid #c9b58d;
+  border-radius: 10px;
+  color: var(--wine);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+  user-select: none;
+}
+.advanced-options > summary::-webkit-details-marker { display: none; }
+.advanced-options > summary::after {
+  content: '▾';
+  margin-left: 9px;
+  font-size: .9rem;
+}
+.advanced-options[open] > summary::after { content: '▴'; }
+.advanced-options > summary:hover { background: #faf7f1; }
+.advanced-options > summary:focus-visible {
+  outline: 3px solid rgba(109,23,37,.16);
+  outline-offset: 2px;
+}
+.advanced-options-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0 14px 14px;
+}
+.advanced-options-body > div {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid #ece8df;
+  border-radius: 10px;
+  background: #fbfaf8;
+}
+.advanced-options-body strong { color: var(--wine-dark); }
+.advanced-options-body p {
+  margin: 5px 0 12px;
+  color: var(--muted);
+  font-size: .86rem;
+}
+.advanced-options-body form { margin: 0; }
+
+@media (max-width: 680px) {
+  .advanced-options > summary {
+    display: flex;
+    width: calc(100% - 20px);
+    justify-content: center;
+  }
+  .advanced-options-body { grid-template-columns: 1fr; }
+  .advanced-options-body .button { width: 100%; }
+}
+
 /* Credencial pública v1.0.12 */
 .id-qr-section {
   display: grid;

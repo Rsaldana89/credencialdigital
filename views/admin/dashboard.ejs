@@ -28,25 +28,6 @@
 
 <section class="admin-actions">
   <article class="action-card">
-    <h2>Generación masiva</h2>
-    <p>Genera un token QR para cada empleado activo que todavía no tenga uno.</p>
-    <form method="post" action="/admin/generar-qr">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <input type="hidden" name="mode" value="missing">
-      <button class="button button-primary" type="submit">Generar QR faltantes</button>
-    </form>
-  </article>
-
-  <article class="action-card">
-    <h2>Desactivar bajas</h2>
-    <p>Revoca los QR activos de empleados ubicados en el departamento Baja o que ya no existen en personal.</p>
-    <form method="post" action="/admin/desactivar-bajas">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button class="button button-danger" type="submit">Desactivar QR de bajas</button>
-    </form>
-  </article>
-
-  <article class="action-card">
     <h2>Asistencia a eventos</h2>
     <p>Crea eventos generales o fiestas con premios y registra asistencia usando los QR ya existentes.</p>
     <a class="button button-primary" href="/admin/eventos">Administrar eventos</a>
@@ -58,3 +39,28 @@
     <a class="button button-primary" href="/admin/fotografias/importar">Importar fotografías</a>
   </article>
 </section>
+
+<details class="advanced-options advanced-options-dashboard">
+  <summary>Opciones avanzadas</summary>
+  <div class="advanced-options-body">
+    <div>
+      <strong>Generar QR faltantes</strong>
+      <p>Normalmente no es necesario: al entrar a Empleados el sistema genera o reactiva automáticamente los QR pendientes.</p>
+      <form method="post" action="/admin/generar-qr">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="mode" value="missing">
+        <input type="hidden" name="return_to" value="/admin">
+        <button class="button button-secondary" type="submit">Generar QR faltantes</button>
+      </form>
+    </div>
+    <div>
+      <strong>Desactivar QR de inactivos</strong>
+      <p>Revoca QR activos de empleados en Baja o que ya no existen en personal.</p>
+      <form method="post" action="/admin/desactivar-bajas">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="return_to" value="/admin">
+        <button class="button button-danger" type="submit">Desactivar QR de inactivos</button>
+      </form>
+    </div>
+  </div>
+</details>

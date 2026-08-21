@@ -1,3 +1,11 @@
+## v1.0.46 - QR automáticos y opciones avanzadas
+
+- Al entrar a **Admin > Empleados**, el sistema revisa empleados activos y crea automáticamente los QR que falten antes de mostrar la lista.
+- Si un empleado vuelve a estar activo y ya tenía un QR histórico desactivado, se **reactiva el mismo QR** en lugar de generar otro.
+- La generación automática usa un bloqueo lógico de MySQL para evitar duplicados si dos administradores abren la pantalla al mismo tiempo.
+- **Generar QR faltantes** y **Desactivar QR de inactivos** quedaron ocultos dentro de **Opciones avanzadas**.
+- No requiere cambios de estructura ni scripts SQL adicionales.
+
 ## Cambios de la versión 1.0.45
 
 - Las horas automáticas de **asistencia** y **entrega de premios** que MySQL guarda en UTC ahora se muestran convertidas a `America/Mexico_City` (UTC-6 para la operación actual), sin cambiar la estructura ni reescribir los datos de la base.

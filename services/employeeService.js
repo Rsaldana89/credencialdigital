@@ -366,6 +366,85 @@ async function getActiveQrByEmployee(rawEmployeeNumber) {
   return rows[0] || null;
 }
 
+const QR_GENERATION_LOCK = 'chc_credenciales_qr_generation';
+
+async function acquireQrGenerationLock(connection, timeoutSeconds = 5) {
+  const [rows] = await connection.query('SELECT GET_LOCK(?, ?) AS acquired', [QR_GENERATION_LOCK, timeoutSeconds]);
+  return Number(rows?.[0]?.acquired) === 1;
+}
+
+async function releaseQrGenerationLock(connection) {
+  try {
+    await connection.query('SELECT RELEASE_LOCK(?)', [QR_GENERATION_LOCK]);
+  } catch (error) {
+    console.error('No fue posible liberar el bloqueo de generación QR:', error.message);
+  }
+}
+
+async function getLatestQrByEmployee(connection, employeeNumber) {
+  const [rows] = await connection.execute(
+    `SELECT id, employee_number, qr_token, is_active, created_at, revoked_at, revoked_reason
+     FROM employee_qr_tokens
+     WHERE employee_number = ?
+     ORDER BY created_at DESC, id DESC
+     LIMIT 1`,
+    [employeeNumber]
+  );
+  return rows[0] || null;
+}
+
+async function ensureQrForActiveEmployee(connection, employeeNumber) {
+  const [activeRows] = await connection.execute(
+    `SELECT id, employee_number, qr_token, is_active, created_at
+     FROM employee_qr_tokens
+     WHERE employee_number = ? AND is_active = 1
+     ORDER BY created_at DESC, id DESC
+     LIMIT 1`,
+    [employeeNumber]
+  );
+
+  if (activeRows[0]) {
+    return { token: activeRows[0].qr_token, created: false, reactivated: false };
+  }
+
+  // Si un empleado vuelve a estar activo, conserva su mismo QR histórico.
+  const latest = await getLatestQrByEmployee(connection, employeeNumber);
+  if (latest) {
+    const [updateResult] = await connection.execute(
+      `UPDATE employee_qr_tokens
+       SET is_active = 1, revoked_at = NULL, revoked_reason = NULL
+       WHERE id = ? AND is_active = 0`,
+      [latest.id]
+    );
+
+    if (Number(updateResult.affectedRows) > 0) {
+      return { token: latest.qr_token, created: false, reactivated: true };
+    }
+
+    const refreshed = await getLatestQrByEmployee(connection, employeeNumber);
+    if (refreshed?.is_active) {
+      return { token: refreshed.qr_token, created: false, reactivated: false };
+    }
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const token = crypto.randomBytes(32).toString('hex');
+    try {
+      await connection.execute(
+        `INSERT INTO employee_qr_tokens
+          (employee_number, qr_token, is_active, created_at)
+         VALUES (?, ?, 1, NOW())`,
+        [employeeNumber, token]
+      );
+      return { token, created: true, reactivated: false };
+    } catch (error) {
+      if (error.code !== 'ER_DUP_ENTRY') throw error;
+    }
+  }
+
+  throw new Error('No fue posible generar un token único.');
+}
+
 async function generateQrForEmployee(rawEmployeeNumber) {
   const employeeNumber = normalizeEmployeeNumber(rawEmployeeNumber);
   if (!employeeNumber) {
@@ -386,31 +465,97 @@ async function generateQrForEmployee(rawEmployeeNumber) {
     throw error;
   }
 
-  const existing = await getActiveQrByEmployee(employeeNumber);
-  if (existing) return { token: existing.qr_token, created: false };
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const token = crypto.randomBytes(32).toString('hex');
-    try {
-      await pool.execute(
-        `INSERT INTO employee_qr_tokens
-          (employee_number, qr_token, is_active, created_at)
-         VALUES (?, ?, 1, NOW())`,
-        [employeeNumber, token]
-      );
-      return { token, created: true };
-    } catch (error) {
-      if (error.code !== 'ER_DUP_ENTRY') throw error;
+  const connection = await pool.getConnection();
+  let lockAcquired = false;
+  try {
+    lockAcquired = await acquireQrGenerationLock(connection);
+    if (!lockAcquired) {
+      throw new Error('La generación de QR está ocupada. Intenta nuevamente en unos segundos.');
     }
+    return await ensureQrForActiveEmployee(connection, employeeNumber);
+  } finally {
+    if (lockAcquired) await releaseQrGenerationLock(connection);
+    connection.release();
   }
-
-  throw new Error('No fue posible generar un token único.');
 }
 
 async function generateMissingTokens() {
-  const [resultSets] = await pool.query('CALL sp_generate_missing_employee_qr_tokens()');
-  const firstResult = Array.isArray(resultSets) ? resultSets[0] : null;
-  return Number(firstResult?.[0]?.generated_count || 0);
+  const connection = await pool.getConnection();
+  let lockAcquired = false;
+
+  try {
+    // Serializa la revisión para que dos administradores no creen QR duplicados.
+    lockAcquired = await acquireQrGenerationLock(connection);
+    if (!lockAcquired) {
+      return { generatedCount: 0, reactivatedCount: 0, busy: true };
+    }
+
+    await connection.beginTransaction();
+
+    // Primero reactiva el QR histórico más reciente cuando el empleado volvió a estar activo.
+    const [reactivated] = await connection.query(
+      `UPDATE employee_qr_tokens t
+       INNER JOIN (
+         SELECT employee_number, MAX(id) AS latest_id
+         FROM employee_qr_tokens
+         GROUP BY employee_number
+       ) latest
+         ON latest.latest_id = t.id
+       INNER JOIN personal p
+         ON p.employee_number = t.employee_number
+       LEFT JOIN employee_qr_tokens active_qr
+         ON active_qr.employee_number = t.employee_number
+        AND active_qr.is_active = 1
+       SET
+         t.is_active = 1,
+         t.revoked_at = NULL,
+         t.revoked_reason = NULL
+       WHERE t.is_active = 0
+         AND active_qr.id IS NULL
+         AND ${ACTIVE_DEPARTMENT_SQL}`
+    );
+
+    // Después crea QR únicamente para empleados activos que nunca han tenido token.
+    const [generated] = await connection.query(
+      `INSERT INTO employee_qr_tokens
+        (employee_number, qr_token, is_active, created_at)
+       SELECT
+         active_employees.employee_number,
+         LOWER(HEX(RANDOM_BYTES(32))),
+         1,
+         NOW()
+       FROM (
+         SELECT DISTINCT p.employee_number
+         FROM personal p
+         WHERE ${ACTIVE_DEPARTMENT_SQL}
+           AND p.employee_number IS NOT NULL
+           AND CHAR_LENGTH(TRIM(p.employee_number)) > 0
+       ) active_employees
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM employee_qr_tokens existing_qr
+         WHERE existing_qr.employee_number = active_employees.employee_number
+       )`
+    );
+
+    await connection.commit();
+
+    return {
+      generatedCount: Number(generated.affectedRows || 0),
+      reactivatedCount: Number(reactivated.affectedRows || 0),
+      busy: false
+    };
+  } catch (error) {
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      console.error('No fue posible revertir la generación automática de QR:', rollbackError.message);
+    }
+    throw error;
+  } finally {
+    if (lockAcquired) await releaseQrGenerationLock(connection);
+    connection.release();
+  }
 }
 
 async function deactivateQrForInactiveEmployees() {

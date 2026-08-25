@@ -1,6 +1,6 @@
 {
   "name": "credenciales-qr-chc",
-  "version": "1.0.47",
+  "version": "1.0.48",
   "description": "Aplicación web de credenciales digitales QR para Cremería Hermanos Coronel.",
   "main": "server.js",
   "private": true,

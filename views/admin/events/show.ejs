@@ -16,9 +16,21 @@
         <h1><%= event.event_name %></h1>
         <p><%= event.event_type === 'FIESTA_PREMIOS' ? 'Fiesta con Premios' : 'General' %> · <%= formatDateTime(event.event_date) %></p>
       </div>
-      <span id="event-status-badge" class="event-status <%= event.status === 'OPEN' ? 'event-status--open' : 'event-status--closed' %>">
-        <%= event.status === 'OPEN' ? 'Abierto' : 'Cerrado' %>
-      </span>
+      <div class="event-scanner-head-actions">
+        <span id="event-status-badge" class="event-status <%= event.status === 'OPEN' ? 'event-status--open' : 'event-status--closed' %>">
+          <%= event.status === 'OPEN' ? 'Abierto' : 'Cerrado' %>
+        </span>
+        <button
+          class="event-scanner-toggle"
+          type="button"
+          id="event-scanner-toggle"
+          aria-expanded="true"
+          aria-controls="event-scanner-collapsible"
+        >
+          <span id="event-scanner-toggle-label">Ocultar escáner</span>
+          <span class="event-scanner-toggle__icon" aria-hidden="true">⌃</span>
+        </button>
+      </div>
     </div>
 
     <div class="event-tenure-toolbar">
@@ -59,7 +71,7 @@
 
       <div class="event-tenure-active-summary" aria-live="polite">
         <strong id="event-tenure-active-title">Todos los rangos</strong>
-        <span id="event-tenure-active-counts"><%= attendees.length %> invitados visibles</span>
+        <span id="event-tenure-active-counts">Mostrando <%= attendees.length %> invitados · <%= attendees.filter((item) => item.attended_at).length %> con asistencia</span>
       </div>
 
       <div class="event-filter-export-actions">
@@ -68,44 +80,54 @@
       </div>
     </div>
 
-    <div class="event-scanner-grid">
-      <div class="event-camera-box">
-        <video id="event-scanner-video" class="event-scanner-video" playsinline muted></video>
-        <div class="event-camera-overlay" aria-hidden="true"><span></span></div>
-        <div class="event-camera-placeholder" id="event-camera-placeholder">
-          <strong>Escáner QR</strong>
-          <span>Activa la cámara para leer la credencial existente.</span>
-        </div>
-      </div>
-      <div class="event-scanner-controls">
-        <div id="event-scanner-message" class="event-scanner-message" role="status">
-          <% if (event.status === 'OPEN') { %>
-            Activa la cámara. El QR se comparará con Credenciales Digitales, esta lista y el filtro de antigüedad activo.
-          <% } else { %>
-            El evento está cerrado. El escáner y los cambios están deshabilitados.
-          <% } %>
-        </div>
-        <div class="button-row event-camera-buttons">
-          <button class="button button-primary" type="button" id="event-start-camera" <%= event.status !== 'OPEN' ? 'disabled' : '' %>>Activar cámara</button>
-          <button class="button button-secondary" type="button" id="event-switch-camera" hidden>Cambiar cámara</button>
-          <button class="button button-secondary" type="button" id="event-stop-camera" disabled>Detener</button>
-        </div>
-        <p class="help-text">La cámara requiere HTTPS. Cada escaneo consulta MySQL en ese momento y solo registra empleados incluidos en los rangos marcados.</p>
+    <div class="event-scanner-shortcuts" id="event-scanner-shortcuts">
+      <span>Escáner oculto para dejar espacio a la consulta.</span>
+      <div>
+        <button class="button button-secondary button-small" type="button" id="event-jump-search">Buscar empleado</button>
+        <button class="button button-secondary button-small" type="button" id="event-jump-list">Ver lista</button>
       </div>
     </div>
 
-    <div class="event-scan-result" id="event-scan-result" hidden>
-      <div class="event-scan-result__main">
-        <span class="event-result-kicker" id="event-result-kicker">Resultado</span>
-        <strong id="event-result-name"></strong>
-        <span id="event-result-meta"></span>
-        <span id="event-result-status"></span>
+    <div class="event-scanner-collapsible" id="event-scanner-collapsible">
+      <div class="event-scanner-grid">
+        <div class="event-camera-box">
+          <video id="event-scanner-video" class="event-scanner-video" playsinline muted></video>
+          <div class="event-camera-overlay" aria-hidden="true"><span></span></div>
+          <div class="event-camera-placeholder" id="event-camera-placeholder">
+            <strong>Escáner QR</strong>
+            <span>Activa la cámara para leer la credencial existente.</span>
+          </div>
+        </div>
+        <div class="event-scanner-controls">
+          <div id="event-scanner-message" class="event-scanner-message" role="status">
+            <% if (event.status === 'OPEN') { %>
+              Activa la cámara. El QR se comparará con Credenciales Digitales, esta lista y el filtro de antigüedad activo.
+            <% } else { %>
+              El evento está cerrado. El escáner y los cambios están deshabilitados.
+            <% } %>
+          </div>
+          <div class="button-row event-camera-buttons">
+            <button class="button button-primary" type="button" id="event-start-camera" <%= event.status !== 'OPEN' ? 'disabled' : '' %>>Activar cámara</button>
+            <button class="button button-secondary" type="button" id="event-switch-camera" hidden>Cambiar cámara</button>
+            <button class="button button-secondary" type="button" id="event-stop-camera" disabled>Detener</button>
+          </div>
+          <p class="help-text">La cámara requiere HTTPS. Cada escaneo consulta MySQL en ese momento y solo registra empleados incluidos en los rangos marcados.</p>
+        </div>
       </div>
-      <div class="event-result-actions" id="event-result-actions">
-        <% if (event.event_type === 'FIESTA_PREMIOS') { %>
-          <button class="button button-primary" type="button" id="event-result-prize" hidden>Marcar Premio</button>
-          <button class="button button-secondary" type="button" id="event-result-consolation" hidden>Marcar Consolación</button>
-        <% } %>
+
+      <div class="event-scan-result" id="event-scan-result" hidden>
+        <div class="event-scan-result__main">
+          <span class="event-result-kicker" id="event-result-kicker">Resultado</span>
+          <strong id="event-result-name"></strong>
+          <span id="event-result-meta"></span>
+          <span id="event-result-status"></span>
+        </div>
+        <div class="event-result-actions" id="event-result-actions">
+          <% if (event.event_type === 'FIESTA_PREMIOS') { %>
+            <button class="button button-primary" type="button" id="event-result-prize" hidden>Marcar Premio</button>
+            <button class="button button-secondary" type="button" id="event-result-consolation" hidden>Marcar Consolación</button>
+          <% } %>
+        </div>
       </div>
     </div>
   </section>
@@ -135,7 +157,7 @@
       <% } %>
     </section>
 
-    <section class="panel-card event-manual-search-section">
+    <section class="panel-card event-manual-search-section" id="event-manual-search-section">
       <div class="event-section-title-row">
         <div>
           <h2>Búsqueda manual</h2>
@@ -143,13 +165,13 @@
         </div>
       </div>
       <div class="event-manual-search-row">
-        <input class="form-control" type="search" id="event-manual-search" placeholder="Número de empleado o nombre" autocomplete="off">
+        <input class="form-control" type="search" id="event-manual-search" placeholder="Número, nombre, puesto o departamento" autocomplete="off">
         <button class="button button-primary" type="button" id="event-manual-search-button">Buscar</button>
       </div>
       <div id="event-manual-results" class="event-manual-results" aria-live="polite"></div>
     </section>
 
-    <section class="panel-card event-attendance-section">
+    <section class="panel-card event-attendance-section" id="event-attendance-section">
       <div class="event-section-title-row">
         <div>
           <h2>Lista del evento</h2>
@@ -241,5 +263,5 @@
   </div>
 </section>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.47" defer></script>
-<script src="/js/events-show.js?v=1.0.47" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.48" defer></script>
+<script src="/js/events-show.js?v=1.0.48" defer></script>

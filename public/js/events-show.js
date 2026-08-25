@@ -29,6 +29,14 @@
   const statAttended = document.getElementById('event-stat-attended');
   const statPrizes = document.getElementById('event-stat-prizes');
   const statConsolations = document.getElementById('event-stat-consolations');
+  const scannerSticky = document.querySelector('.event-scanner-sticky');
+  const scannerCollapsible = document.getElementById('event-scanner-collapsible');
+  const scannerToggleButton = document.getElementById('event-scanner-toggle');
+  const scannerToggleLabel = document.getElementById('event-scanner-toggle-label');
+  const jumpSearchButton = document.getElementById('event-jump-search');
+  const jumpListButton = document.getElementById('event-jump-list');
+  const manualSearchSection = document.getElementById('event-manual-search-section');
+  const attendanceSection = document.getElementById('event-attendance-section');
 
   const tenureFilterDetails = document.getElementById('event-tenure-filter');
   const tenureFilterLabel = document.getElementById('event-tenure-filter-label');
@@ -69,6 +77,7 @@
   let syncBusy = false;
   let syncTimer = null;
   let manualSearchSequence = 0;
+  let scannerWasActiveBeforeCollapse = false;
   const LIVE_SYNC_INTERVAL_MS = 30000;
 
   function ensureAudioReady() {
@@ -213,9 +222,11 @@
     if (tenureActiveTitle) tenureActiveTitle.textContent = label;
     if (tenureActiveCounts) {
       if (!groups.length) {
-        tenureActiveCounts.textContent = '0 invitados visibles · el escáner no registrará asistencias hasta seleccionar un rango';
+        tenureActiveCounts.textContent = 'Mostrando 0 invitados · selecciona al menos un rango para habilitar el escáner y la búsqueda';
+      } else if (groups.length === allTenureGroupCodes.length) {
+        tenureActiveCounts.textContent = `Mostrando ${visibleCount} invitado${visibleCount === 1 ? '' : 's'} · ${attendedCount} con asistencia`;
       } else {
-        tenureActiveCounts.textContent = `${visibleCount} invitado${visibleCount === 1 ? '' : 's'} visible${visibleCount === 1 ? '' : 's'} · ${attendedCount} asistente${attendedCount === 1 ? '' : 's'} en este filtro`;
+        tenureActiveCounts.textContent = `Mostrando ${visibleCount} invitado${visibleCount === 1 ? '' : 's'} en la selección · ${attendedCount} con asistencia`;
       }
     }
     if (filterEmptyRow) filterEmptyRow.hidden = visibleCount > 0;
@@ -668,6 +679,42 @@
     setCameraButtons(false);
   }
 
+  async function setScannerCollapsed(collapsed) {
+    if (!scannerCollapsible || !scannerToggleButton || !scannerSticky) return;
+    if (collapsed && scannerCollapsible.hidden) return;
+    if (!collapsed && !scannerCollapsible.hidden) return;
+
+    if (collapsed) {
+      scannerWasActiveBeforeCollapse = scanning;
+      if (scanning) stopCamera();
+      scannerCollapsible.hidden = true;
+      scannerSticky.classList.add('event-scanner-sticky--collapsed');
+      scannerToggleButton.setAttribute('aria-expanded', 'false');
+      if (scannerToggleLabel) scannerToggleLabel.textContent = 'Mostrar escáner';
+      return;
+    }
+
+    scannerCollapsible.hidden = false;
+    scannerSticky.classList.remove('event-scanner-sticky--collapsed');
+    scannerToggleButton.setAttribute('aria-expanded', 'true');
+    if (scannerToggleLabel) scannerToggleLabel.textContent = 'Ocultar escáner';
+
+    const shouldResume = scannerWasActiveBeforeCollapse;
+    scannerWasActiveBeforeCollapse = false;
+    if (shouldResume && isOpen) await startCamera();
+  }
+
+  async function jumpToEventSection(section, { focusSearch = false } = {}) {
+    if (!section) return;
+    await setScannerCollapsed(true);
+    window.requestAnimationFrame(() => {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (focusSearch && manualInput) {
+        window.setTimeout(() => manualInput.focus({ preventScroll: true }), 350);
+      }
+    });
+  }
+
   function createElement(tag, className, text) {
     const element = document.createElement(tag);
     if (className) element.className = className;
@@ -1019,6 +1066,13 @@
 
   setCameraPlaceholderVisible(true);
   setCameraButtons(false);
+
+  scannerToggleButton?.addEventListener('click', async () => {
+    const expanded = scannerToggleButton.getAttribute('aria-expanded') !== 'false';
+    await setScannerCollapsed(expanded);
+  });
+  jumpSearchButton?.addEventListener('click', () => jumpToEventSection(manualSearchSection, { focusSearch: true }));
+  jumpListButton?.addEventListener('click', () => jumpToEventSection(attendanceSection));
 
   startButton?.addEventListener('pointerdown', ensureAudioReady);
   startButton?.addEventListener('click', startCamera);

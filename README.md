@@ -1,3 +1,15 @@
+## v1.0.48 - Interfaz plegable y reportes legibles
+
+- Corrige el PDF de eventos para que el texto en español sea legible en Railway y en cualquier navegador/visor PDF.
+- El PDF ahora indica lista completa o filtro de antigüedad y muestra totales, asistencia y premios.
+- El Excel agrega encabezado con evento, alcance, filtro y fecha de referencia de antigüedad.
+- El resumen de antigüedad ahora distingue claramente invitados mostrados y personas con asistencia.
+- El escáner QR conserva su tamaño grande y posición fija, pero puede ocultarse para consultar búsqueda manual o lista.
+- Al ocultar el escáner se pausa la cámara; al volver a mostrarlo se reanuda si estaba activa.
+- No requiere cambios de base de datos.
+
+Ver `INTERFAZ_REPORTES_v1.0.48_LEEME.md`.
+
 ## v1.0.47 - Filtro de antigüedad en asistencia a eventos
 
 - La vista de cada evento incorpora un filtro desplegable **Antigüedad** con casillas para: menos de 5 años, 5 a 9, 10 a 14, 15 a 19, 20 a 24, 25 a 29 y 30 años o más.

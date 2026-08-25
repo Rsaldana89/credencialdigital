@@ -1,3 +1,16 @@
+## v1.0.47 - Filtro de antigüedad en asistencia a eventos
+
+- La vista de cada evento incorpora un filtro desplegable **Antigüedad** con casillas para: menos de 5 años, 5 a 9, 10 a 14, 15 a 19, 20 a 24, 25 a 29 y 30 años o más.
+- El filtro se guarda por pestaña/dispositivo para que varios operadores puedan trabajar al mismo tiempo con rangos distintos sin cambiar la lista de los demás.
+- La antigüedad se calcula con la **fecha del evento**. Si una persona cumple 5, 10, 15, 20, 25 o 30 años exactamente el día del evento, desde ese mismo día entra en el nuevo rango; un día antes conserva el rango anterior.
+- No se cambia la forma en que se crean los invitados: el filtro únicamente controla qué invitados se muestran y cuáles puede atender ese dispositivo.
+- Cada escaneo continúa consultando MySQL inmediatamente. Si el QR es válido pero el invitado no pertenece a los rangos marcados, no se registra su asistencia y se informa que está fuera de la lista filtrada.
+- La búsqueda manual, los botones de asistencia y la entrega de Premio/Consolación respetan el mismo filtro activo.
+- Cada fila muestra siempre la antigüedad exacta, la fecha de ingreso y una etiqueta de color con el rango correspondiente.
+- Se conservan **Excel completo/PDF completo** y se agregan **Excel del filtro/PDF del filtro**.
+- Se mantiene la protección multidispositivo y la actualización automática cada 30 segundos.
+- No requiere cambios de estructura ni scripts SQL adicionales.
+
 ## v1.0.46 - QR automáticos y opciones avanzadas
 
 - Al entrar a **Admin > Empleados**, el sistema revisa empleados activos y crea automáticamente los QR que falten antes de mostrar la lista.

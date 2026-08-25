@@ -40,12 +40,33 @@ function cleanFilename(value, fallback = 'evento') {
   return text || fallback;
 }
 
+function tenureGroupsFromRequest(req, { source = 'body', defaultAll = true } = {}) {
+  const container = source === 'query' ? (req.query || {}) : (req.body || {});
+  const rawValue = source === 'query' ? container.antiguedad : container.tenure_groups;
+  return eventService.normalizeTenureGroupSelection(rawValue, { defaultAll });
+}
+
+function exportFilterFromRequest(req) {
+  const filtered = String(req.query?.scope || '').toLowerCase() === 'filtered';
+  if (!filtered) return { filtered: false, groups: null, label: 'Lista completa' };
+  const groups = tenureGroupsFromRequest(req, { source: 'query', defaultAll: false });
+  return {
+    filtered: true,
+    groups,
+    label: eventService.describeTenureGroupSelection(groups)
+  };
+}
+
 function serializeAttendee(event, attendee) {
   if (!attendee) return null;
   const attended = Boolean(attendee.attended_at);
   const hasAward = Boolean(attendee.award_type);
   const fiesta = event.event_type === 'FIESTA_PREMIOS';
   const isOpen = event.status === 'OPEN';
+  const tenure = eventService.getTenureDetails(
+    attendee.start_date_snapshot,
+    String(event.event_date || '').slice(0, 10)
+  );
   return {
     id: Number(attendee.id),
     employeeNumber: eventService.formatEmployeeNumber(attendee.employee_number),
@@ -54,7 +75,14 @@ function serializeAttendee(event, attendee) {
     puesto: attendee.puesto_snapshot || '',
     department: attendee.department_snapshot || '',
     startDate: formatDate(attendee.start_date_snapshot),
-    tenure: eventService.calculateTenure(attendee.start_date_snapshot, String(event.event_date || '').slice(0, 10)),
+    tenure: tenure.label,
+    tenureYears: tenure.years,
+    tenureMonths: tenure.months,
+    tenureGroup: tenure.groupCode,
+    tenureGroupLabel: tenure.groupLabel,
+    tenureGroupShortLabel: tenure.groupShortLabel,
+    tenureGroupBadgeLabel: tenure.groupBadgeLabel,
+    tenureGroupCssClass: tenure.groupCssClass,
     attended,
     attendedAt: attendee.attended_at ? formatUtcDateTimeInEventZone(attendee.attended_at) : null,
     attendanceMethod: attendee.attendance_method || null,
@@ -97,7 +125,7 @@ async function index(req, res, next) {
       title: 'Asistencia a eventos',
       events,
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.45'
+      pageStyles: '/css/events.css?v=1.0.47'
     });
   } catch (error) {
     return next(error);
@@ -114,7 +142,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.45'
+      pageStyles: '/css/events.css?v=1.0.47'
     });
   } catch (error) {
     return next(error);
@@ -146,7 +174,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.45'
+          pageStyles: '/css/events.css?v=1.0.47'
         });
       } catch (renderError) {
         return next(renderError);
@@ -168,17 +196,29 @@ async function show(req, res, next) {
     }
     const latestLogId = await eventService.getLatestEventLogId(event.id);
     const attendees = await eventService.listEventAttendees(event.id);
+    const referenceDate = String(event.event_date || '').slice(0, 10);
+    const groupCounts = new Map(eventService.TENURE_GROUPS.map((group) => [group.code, 0]));
+    attendees.forEach((attendee) => {
+      const details = eventService.getTenureDetails(attendee.start_date_snapshot, referenceDate);
+      groupCounts.set(details.groupCode, Number(groupCounts.get(details.groupCode) || 0) + 1);
+    });
+    const tenureGroups = eventService.TENURE_GROUPS
+      .filter((group) => group.code !== 'UNKNOWN' || Number(groupCounts.get('UNKNOWN') || 0) > 0)
+      .map((group) => ({ ...group, count: Number(groupCounts.get(group.code) || 0) }));
+
     return res.render('admin/events/show', {
       title: event.event_name,
       event,
       attendees,
+      tenureGroups,
       latestLogId,
       formatDate,
       formatDateTime,
       formatRecordedDateTime: formatUtcDateTimeInEventZone,
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
-      pageStyles: '/css/events.css?v=1.0.45'
+      getTenureDetails: eventService.getTenureDetails,
+      pageStyles: '/css/events.css?v=1.0.47'
     });
   } catch (error) {
     return next(error);
@@ -188,7 +228,8 @@ async function show(req, res, next) {
 async function search(req, res, next) {
   try {
     const event = await eventService.requireEvent(req.params.eventId);
-    const attendees = await eventService.searchEventAttendees(event.id, req.query.q);
+    const tenureGroups = tenureGroupsFromRequest(req, { source: 'query', defaultAll: true });
+    const attendees = await eventService.searchEventAttendees(event.id, req.query.q, tenureGroups, event);
     return res.json({
       ok: true,
       event: { id: Number(event.id), type: event.event_type, status: event.status },
@@ -261,14 +302,23 @@ async function scan(req, res, next) {
       });
     }
 
+    const tenureGroups = tenureGroupsFromRequest(req, { source: 'body', defaultAll: true });
     const result = await eventService.checkInByEmployeeNumber(
       event.id,
       resolution.employee.employee_number,
       currentActor(req),
-      'QR'
+      'QR',
+      tenureGroups
     );
 
     if (!result.attendee) {
+      if (result.outsideTenureFilter) {
+        return res.status(404).json({
+          ok: false,
+          code: 'OUTSIDE_TENURE_FILTER',
+          message: 'No se encontró a este empleado en la lista filtrada de antigüedad.'
+        });
+      }
       return res.status(404).json({
         ok: false,
         code: 'NOT_INVITED',
@@ -292,11 +342,24 @@ async function scan(req, res, next) {
 
 async function checkIn(req, res, next) {
   try {
+    const tenureGroups = tenureGroupsFromRequest(req, { source: 'body', defaultAll: true });
     const result = await eventService.checkInByAttendeeId(
       req.params.eventId,
       req.params.attendeeId,
-      currentActor(req)
+      currentActor(req),
+      tenureGroups
     );
+    if (!result.attendee && result.outsideTenureFilter) {
+      if (wantsJson(req)) {
+        return res.status(404).json({
+          ok: false,
+          code: 'OUTSIDE_TENURE_FILTER',
+          message: 'El empleado ya no se encuentra en el filtro de antigüedad seleccionado.'
+        });
+      }
+      setFlash(req, 'danger', 'El empleado ya no se encuentra en el filtro de antigüedad seleccionado.');
+      return res.redirect(`/admin/eventos/${result.event.id}`);
+    }
     if (wantsJson(req)) {
       return res.json({
         ok: true,
@@ -326,7 +389,8 @@ async function award(req, res, next) {
       req.params.attendeeId,
       req.body.award_type,
       currentActor(req),
-      req.body.source
+      req.body.source,
+      tenureGroupsFromRequest(req, { source: 'body', defaultAll: true })
     );
     const label = result.attendee.award_type === 'PREMIO' ? 'Premio' : 'Premio de consolación';
     if (wantsJson(req)) {
@@ -376,10 +440,15 @@ async function setStatus(req, res, next) {
 
 async function exportXlsx(req, res, next) {
   try {
-    const snapshot = await eventService.getEventSnapshot(req.params.eventId);
+    const filter = exportFilterFromRequest(req);
+    const snapshot = await eventService.getEventSnapshot(req.params.eventId, filter.groups);
     const { event, attendees } = snapshot;
-    const buffer = await eventExportService.buildXlsxBuffer(event, attendees);
-    const filename = `EVENTO_${event.id}_${cleanFilename(event.event_name)}.xlsx`;
+    const buffer = await eventExportService.buildXlsxBuffer(event, attendees, {
+      filtered: filter.filtered,
+      filterLabel: filter.label
+    });
+    const suffix = filter.filtered ? '_FILTRADO' : '';
+    const filename = `EVENTO_${event.id}_${cleanFilename(event.event_name)}${suffix}.xlsx`;
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -393,10 +462,15 @@ async function exportXlsx(req, res, next) {
 
 async function exportPdf(req, res, next) {
   try {
-    const snapshot = await eventService.getEventSnapshot(req.params.eventId);
+    const filter = exportFilterFromRequest(req);
+    const snapshot = await eventService.getEventSnapshot(req.params.eventId, filter.groups);
     const { event, attendees } = snapshot;
-    const buffer = await eventExportService.buildPdfBuffer(event, attendees);
-    const filename = `EVENTO_${event.id}_${cleanFilename(event.event_name)}.pdf`;
+    const buffer = await eventExportService.buildPdfBuffer(event, attendees, {
+      filtered: filter.filtered,
+      filterLabel: filter.label
+    });
+    const suffix = filter.filtered ? '_FILTRADO' : '';
+    const filename = `EVENTO_${event.id}_${cleanFilename(event.event_name)}${suffix}.pdf`;
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,

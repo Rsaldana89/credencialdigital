@@ -4,6 +4,8 @@
   data-event-id="<%= event.id %>"
   data-event-type="<%= event.event_type %>"
   data-event-status="<%= event.status %>"
+  data-event-reference-date="<%= String(event.event_date || '').slice(0, 10) %>"
+  data-all-tenure-groups="<%= tenureGroups.map((group) => group.code).join(',') %>"
   data-last-log-id="<%= latestLogId || 0 %>"
   data-csrf="<%= csrfToken %>"
 >
@@ -19,6 +21,53 @@
       </span>
     </div>
 
+    <div class="event-tenure-toolbar">
+      <details class="event-tenure-filter" id="event-tenure-filter">
+        <summary>
+          <span>Antigüedad</span>
+          <strong id="event-tenure-filter-label">Todos los rangos</strong>
+        </summary>
+        <div class="event-tenure-filter-panel">
+          <div class="event-tenure-filter-heading">
+            <div>
+              <strong>Filtrar la lista y el escáner</strong>
+              <span>Calculada a la fecha del evento: <%= formatDate(event.event_date) %>.</span>
+            </div>
+          </div>
+          <div class="event-tenure-options">
+            <% tenureGroups.forEach((group) => { %>
+              <label class="event-tenure-option event-tenure-option--<%= group.cssClass %>">
+                <input
+                  type="checkbox"
+                  value="<%= group.code %>"
+                  data-tenure-filter-code="<%= group.code %>"
+                  checked
+                >
+                <span class="event-tenure-option__copy">
+                  <strong><%= group.label %></strong>
+                  <small><%= group.count %> invitado<%= group.count === 1 ? '' : 's' %></small>
+                </span>
+              </label>
+            <% }) %>
+          </div>
+          <div class="event-tenure-filter-actions">
+            <button class="button button-secondary button-small" type="button" id="event-tenure-select-all">Seleccionar todos</button>
+            <button class="button button-secondary button-small" type="button" id="event-tenure-clear">Limpiar</button>
+          </div>
+        </div>
+      </details>
+
+      <div class="event-tenure-active-summary" aria-live="polite">
+        <strong id="event-tenure-active-title">Todos los rangos</strong>
+        <span id="event-tenure-active-counts"><%= attendees.length %> invitados visibles</span>
+      </div>
+
+      <div class="event-filter-export-actions">
+        <a class="button button-secondary button-small" id="event-export-filtered-xlsx" href="/admin/eventos/<%= event.id %>/exportar.xlsx?scope=filtered&amp;antiguedad=<%= tenureGroups.map((group) => group.code).join(',') %>">Excel del filtro</a>
+        <a class="button button-secondary button-small" id="event-export-filtered-pdf" href="/admin/eventos/<%= event.id %>/exportar.pdf?scope=filtered&amp;antiguedad=<%= tenureGroups.map((group) => group.code).join(',') %>">PDF del filtro</a>
+      </div>
+    </div>
+
     <div class="event-scanner-grid">
       <div class="event-camera-box">
         <video id="event-scanner-video" class="event-scanner-video" playsinline muted></video>
@@ -31,7 +80,7 @@
       <div class="event-scanner-controls">
         <div id="event-scanner-message" class="event-scanner-message" role="status">
           <% if (event.status === 'OPEN') { %>
-            Activa la cámara. El QR se comparará con Credenciales Digitales y con esta lista.
+            Activa la cámara. El QR se comparará con Credenciales Digitales, esta lista y el filtro de antigüedad activo.
           <% } else { %>
             El evento está cerrado. El escáner y los cambios están deshabilitados.
           <% } %>
@@ -41,7 +90,7 @@
           <button class="button button-secondary" type="button" id="event-switch-camera" hidden>Cambiar cámara</button>
           <button class="button button-secondary" type="button" id="event-stop-camera" disabled>Detener</button>
         </div>
-        <p class="help-text">La cámara requiere HTTPS. El sistema usa el lector QR nativo cuando existe y un lector alterno compatible cuando el navegador no lo incluye.</p>
+        <p class="help-text">La cámara requiere HTTPS. Cada escaneo consulta MySQL en ese momento y solo registra empleados incluidos en los rangos marcados.</p>
       </div>
     </div>
 
@@ -65,8 +114,8 @@
     <div class="event-page-topbar">
       <a class="back-link" href="/admin/eventos">← Volver a eventos</a>
       <div class="page-actions">
-        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Exportar Excel</a>
-        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">Exportar PDF</a>
+        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Excel completo</a>
+        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">PDF completo</a>
         <form method="post" action="/admin/eventos/<%= event.id %>/estado">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= event.status === 'OPEN' ? 'CLOSED' : 'OPEN' %>">
@@ -78,8 +127,8 @@
     </div>
 
     <section class="event-live-stats">
-      <article><strong id="event-stat-invited"><%= event.invited_count || 0 %></strong><span>Invitados</span></article>
-      <article><strong id="event-stat-attended"><%= event.attended_count || 0 %></strong><span>Asistentes</span></article>
+      <article><strong id="event-stat-invited"><%= event.invited_count || 0 %></strong><span>Total invitados</span></article>
+      <article><strong id="event-stat-attended"><%= event.attended_count || 0 %></strong><span>Total asistentes</span></article>
       <% if (event.event_type === 'FIESTA_PREMIOS') { %>
         <article><strong id="event-stat-prizes"><%= event.prize_count || 0 %></strong><span>Premios</span></article>
         <article><strong id="event-stat-consolations"><%= event.consolation_count || 0 %></strong><span>Consolación</span></article>
@@ -90,7 +139,7 @@
       <div class="event-section-title-row">
         <div>
           <h2>Búsqueda manual</h2>
-          <p class="muted">Busca por número de empleado, nombre o puesto. Solo aparecerán empleados invitados a este evento.</p>
+          <p class="muted">Busca por número de empleado, nombre, puesto o departamento. La búsqueda respeta el filtro de antigüedad activo.</p>
         </div>
       </div>
       <div class="event-manual-search-row">
@@ -104,7 +153,7 @@
       <div class="event-section-title-row">
         <div>
           <h2>Lista del evento</h2>
-          <p class="muted"><%= event.event_type === 'FIESTA_PREMIOS' ? 'La asistencia y los premios pertenecen únicamente a este evento.' : 'La asistencia pertenece únicamente a este evento.' %></p>
+          <p class="muted"><%= event.event_type === 'FIESTA_PREMIOS' ? 'La asistencia y los premios pertenecen únicamente a este evento.' : 'La asistencia pertenece únicamente a este evento.' %> La antigüedad se calcula al <%= formatDate(event.event_date) %>.</p>
         </div>
       </div>
 
@@ -121,14 +170,21 @@
           </thead>
           <tbody>
             <% attendees.forEach((attendee) => { %>
-              <tr data-attendee-id="<%= attendee.id %>">
+              <% const tenure = getTenureDetails(attendee.start_date_snapshot, String(event.event_date).slice(0, 10)); %>
+              <tr
+                data-attendee-id="<%= attendee.id %>"
+                data-tenure-group="<%= tenure.groupCode %>"
+                data-attended="<%= attendee.attended_at ? '1' : '0' %>"
+                data-award-type="<%= attendee.award_type || '' %>"
+              >
                 <td data-label="Empleado"><strong><%= formatEmployeeNumber(attendee.employee_number) %></strong></td>
                 <td data-label="Nombre / puesto">
                   <strong><%= attendee.full_name_snapshot %></strong>
                   <span class="table-secondary"><%= attendee.puesto_snapshot || 'Sin puesto' %> · <%= attendee.department_snapshot || 'Sin departamento' %></span>
                 </td>
-                <td data-label="Antigüedad">
-                  <%= calculateTenure(attendee.start_date_snapshot, String(event.event_date).slice(0, 10)) %>
+                <td data-label="Antigüedad" data-role="tenure">
+                  <span class="event-tenure-badge event-tenure-badge--<%= tenure.groupCssClass %>"><%= tenure.groupBadgeLabel %></span>
+                  <strong class="event-tenure-value"><%= tenure.label %></strong>
                   <span class="table-secondary">Ingreso: <%= formatDate(attendee.start_date_snapshot) %></span>
                 </td>
                 <td data-label="Asistencia" data-role="attendance">
@@ -136,7 +192,7 @@
                     <span class="pill pill-success">Asistió</span>
                     <span class="table-secondary"><%= formatRecordedDateTime(attendee.attended_at) %> · <%= attendee.attendance_method || '' %></span>
                   <% } else if (event.status === 'OPEN') { %>
-                    <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/asistencia">
+                    <form class="event-row-action-form" data-action="checkin" method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/asistencia">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                       <button class="button button-primary button-small" type="submit">Marcar asistencia</button>
                     </form>
@@ -155,13 +211,13 @@
                       <span class="pill pill-muted">Sin entrega</span>
                     <% } else { %>
                       <div class="event-award-buttons">
-                        <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/premio">
+                        <form class="event-row-action-form" data-action="award" method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/premio">
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                           <input type="hidden" name="award_type" value="PREMIO">
                           <input type="hidden" name="source" value="LIST">
                           <button class="button button-primary button-small" type="submit">Premio</button>
                         </form>
-                        <form method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/premio">
+                        <form class="event-row-action-form" data-action="award" method="post" action="/admin/eventos/<%= event.id %>/asistentes/<%= attendee.id %>/premio">
                           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                           <input type="hidden" name="award_type" value="CONSOLACION">
                           <input type="hidden" name="source" value="LIST">
@@ -173,6 +229,11 @@
                 <% } %>
               </tr>
             <% }) %>
+            <tr id="event-filter-empty-row" class="event-filter-empty-row" hidden>
+              <td colspan="<%= event.event_type === 'FIESTA_PREMIOS' ? 5 : 4 %>">
+                No hay invitados dentro de los rangos de antigüedad seleccionados.
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -180,5 +241,5 @@
   </div>
 </section>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.45" defer></script>
-<script src="/js/events-show.js?v=1.0.45" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.47" defer></script>
+<script src="/js/events-show.js?v=1.0.47" defer></script>

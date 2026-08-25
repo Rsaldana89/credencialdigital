@@ -30,21 +30,26 @@ function formatDate(value) {
 
 function buildExportRows(event, attendees) {
   const referenceDate = String(event.event_date || '').slice(0, 10);
-  return attendees.map((attendee) => ({
-    employee_number: eventService.formatEmployeeNumber(attendee.employee_number),
-    full_name: attendee.full_name_snapshot || '',
-    puesto: attendee.puesto_snapshot || '',
-    department: attendee.department_snapshot || '',
-    start_date: formatDate(attendee.start_date_snapshot),
-    tenure: eventService.calculateTenure(attendee.start_date_snapshot, referenceDate),
-    attended: attendee.attended_at ? 'Sí' : 'No',
-    attended_at: formatUtcDateTimeInEventZone(attendee.attended_at, ''),
-    attendance_method: attendee.attendance_method || '',
-    prize: attendee.award_type === 'PREMIO' ? 'Sí' : 'No',
-    consolation: attendee.award_type === 'CONSOLACION' ? 'Sí' : 'No',
-    award_at: formatUtcDateTimeInEventZone(attendee.award_delivered_at, ''),
-    award_by: attendee.award_delivered_by || ''
-  }));
+  return attendees.map((attendee) => {
+    const tenure = eventService.getTenureDetails(attendee.start_date_snapshot, referenceDate);
+    return {
+      employee_number: eventService.formatEmployeeNumber(attendee.employee_number),
+      full_name: attendee.full_name_snapshot || '',
+      puesto: attendee.puesto_snapshot || '',
+      department: attendee.department_snapshot || '',
+      start_date: formatDate(attendee.start_date_snapshot),
+      tenure: tenure.label,
+      tenure_group: tenure.groupLabel,
+      tenure_group_short: tenure.groupShortLabel,
+      attended: attendee.attended_at ? 'Sí' : 'No',
+      attended_at: formatUtcDateTimeInEventZone(attendee.attended_at, ''),
+      attendance_method: attendee.attendance_method || '',
+      prize: attendee.award_type === 'PREMIO' ? 'Sí' : 'No',
+      consolation: attendee.award_type === 'CONSOLACION' ? 'Sí' : 'No',
+      award_at: formatUtcDateTimeInEventZone(attendee.award_delivered_at, ''),
+      award_by: attendee.award_delivered_by || ''
+    };
+  });
 }
 
 function columnName(index) {
@@ -73,6 +78,7 @@ function buildWorksheetXml(event, exportRows) {
     'Departamento',
     'Fecha de ingreso',
     'Antigüedad',
+    'Rango de antigüedad',
     'Asistió',
     'Hora de asistencia',
     'Método'
@@ -82,8 +88,8 @@ function buildWorksheetXml(event, exportRows) {
   }
 
   const widths = fiesta
-    ? [18, 38, 28, 26, 16, 20, 12, 20, 14, 12, 22, 20, 22]
-    : [18, 38, 28, 26, 16, 20, 12, 20, 14];
+    ? [18, 38, 28, 26, 16, 20, 22, 12, 20, 14, 12, 22, 20, 22]
+    : [18, 38, 28, 26, 16, 20, 22, 12, 20, 14];
 
   const rows = [];
   rows.push(`<row r="1" ht="22" customHeight="1">${headers.map((header, index) => inlineCell(`${columnName(index)}1`, header, 1)).join('')}</row>`);
@@ -96,6 +102,7 @@ function buildWorksheetXml(event, exportRows) {
       row.department,
       row.start_date,
       row.tenure,
+      row.tenure_group,
       row.attended,
       row.attended_at,
       row.attendance_method
@@ -119,7 +126,7 @@ function buildWorksheetXml(event, exportRows) {
 </worksheet>`;
 }
 
-async function buildXlsxBuffer(event, attendees) {
+async function buildXlsxBuffer(event, attendees, options = {}) {
   const exportRows = buildExportRows(event, attendees);
   const output = new PassThrough();
   const chunks = [];
@@ -135,7 +142,7 @@ async function buildXlsxBuffer(event, attendees) {
   archive.pipe(output);
 
   const createdIso = new Date().toISOString();
-  const sheetName = 'Asistencia';
+  const sheetName = options.filtered ? 'Asistencia filtrada' : 'Asistencia';
 
   archive.append(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -219,12 +226,12 @@ function svgText(value) {
   return xmlEscape(String(value ?? '').replace(/[\u0000-\u001F]/g, ' '));
 }
 
-function buildPdfPageSvg(event, rows, pageNumber, totalPages, totals) {
+function buildPdfPageSvg(event, rows, pageNumber, totalPages, totals, options = {}) {
   const fiesta = event.event_type === 'FIESTA_PREMIOS';
   const width = 1123;
   const height = 794;
   const headerY = 92;
-  const tableTop = 150;
+  const tableTop = 168;
   const rowHeight = 34;
   const columns = fiesta
     ? [
@@ -258,9 +265,10 @@ function buildPdfPageSvg(event, rows, pageNumber, totalPages, totals) {
     const award = awardLabel !== 'Sin entrega' && row.award_at
       ? `${awardLabel} · ${row.award_at}`
       : awardLabel;
+    const tenureLabel = `${row.tenure_group_short || row.tenure_group} · ${row.tenure}`;
     const values = fiesta
-      ? [row.employee_number, row.full_name, row.puesto, row.tenure, attendance, award]
-      : [row.employee_number, row.full_name, row.puesto, row.tenure, attendance];
+      ? [row.employee_number, row.full_name, row.puesto, tenureLabel, attendance, award]
+      : [row.employee_number, row.full_name, row.puesto, tenureLabel, attendance];
 
     return `
       <rect x="24" y="${y}" width="${tableWidth}" height="${rowHeight}" fill="${fill}" stroke="#dedad4" stroke-width="1"/>
@@ -275,12 +283,18 @@ function buildPdfPageSvg(event, rows, pageNumber, totalPages, totals) {
     ? `Invitados: ${totals.invited} · Asistentes: ${totals.attended} · Premios: ${totals.prizes} · Consolación: ${totals.consolations}`
     : `Invitados: ${totals.invited} · Asistentes: ${totals.attended}`;
 
+  const filterLabel = options.filtered
+    ? `Filtro de antigüedad: ${options.filterLabel || 'Ningún rango'}`
+    : 'Filtro de antigüedad: Lista completa';
+  const tenureReference = `Antigüedad calculada al ${formatDate(event.event_date)}`;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <rect width="${width}" height="${height}" fill="#ffffff"/>
     <rect x="0" y="0" width="${width}" height="18" fill="#6d1725"/>
     <text x="24" y="52" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#4c111c">${svgText(truncate(event.event_name, 62))}</text>
     <text x="24" y="78" font-family="Arial, sans-serif" font-size="14" fill="#5f6368">Evento #${event.id} · ${svgText(typeLabel)} · ${svgText(formatDateTime(event.event_date))}</text>
     <text x="24" y="${headerY + 22}" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#33363a">${svgText(summary)}</text>
+    <text x="24" y="${headerY + 43}" font-family="Arial, sans-serif" font-size="12" fill="#666a70">${svgText(`${filterLabel} · ${tenureReference}`)}</text>
     <text x="1099" y="${headerY + 22}" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#666a70">Página ${pageNumber} de ${totalPages}</text>
 
     <rect x="24" y="${tableTop}" width="${tableWidth}" height="${rowHeight}" rx="4" fill="#6d1725"/>
@@ -360,21 +374,21 @@ function buildPdfFromJpegs(jpegs, imageWidth = 1123, imageHeight = 794) {
   return Buffer.concat(chunks);
 }
 
-async function buildPdfBuffer(event, attendees) {
+async function buildPdfBuffer(event, attendees, options = {}) {
   const exportRows = buildExportRows(event, attendees);
   const rowsPerPage = 16;
   const totalPages = Math.max(1, Math.ceil(exportRows.length / rowsPerPage));
   const totals = {
-    invited: Number(event.invited_count || attendees.length || 0),
-    attended: Number(event.attended_count || attendees.filter((row) => row.attended_at).length || 0),
-    prizes: Number(event.prize_count || attendees.filter((row) => row.award_type === 'PREMIO').length || 0),
-    consolations: Number(event.consolation_count || attendees.filter((row) => row.award_type === 'CONSOLACION').length || 0)
+    invited: attendees.length,
+    attended: attendees.filter((row) => row.attended_at).length,
+    prizes: attendees.filter((row) => row.award_type === 'PREMIO').length,
+    consolations: attendees.filter((row) => row.award_type === 'CONSOLACION').length
   };
 
   const jpegs = [];
   for (let page = 0; page < totalPages; page += 1) {
     const rows = exportRows.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
-    const svg = buildPdfPageSvg(event, rows, page + 1, totalPages, totals);
+    const svg = buildPdfPageSvg(event, rows, page + 1, totalPages, totals, options);
     const jpeg = await sharp(Buffer.from(svg))
       .jpeg({ quality: 86, chromaSubsampling: '4:4:4' })
       .toBuffer();

@@ -30,6 +30,26 @@
   const statPrizes = document.getElementById('event-stat-prizes');
   const statConsolations = document.getElementById('event-stat-consolations');
 
+  const tenureFilterDetails = document.getElementById('event-tenure-filter');
+  const tenureFilterLabel = document.getElementById('event-tenure-filter-label');
+  const tenureActiveTitle = document.getElementById('event-tenure-active-title');
+  const tenureActiveCounts = document.getElementById('event-tenure-active-counts');
+  const tenureSelectAllButton = document.getElementById('event-tenure-select-all');
+  const tenureClearButton = document.getElementById('event-tenure-clear');
+  const filteredXlsxLink = document.getElementById('event-export-filtered-xlsx');
+  const filteredPdfLink = document.getElementById('event-export-filtered-pdf');
+  const filterEmptyRow = document.getElementById('event-filter-empty-row');
+  const tenureCheckboxes = [...document.querySelectorAll('[data-tenure-filter-code]')];
+  const allTenureGroupCodes = String(root.dataset.allTenureGroups || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const tenureGroupLabels = new Map(tenureCheckboxes.map((checkbox) => [
+    checkbox.value,
+    checkbox.closest('.event-tenure-option')?.querySelector('.event-tenure-option__copy strong')?.textContent?.trim() || checkbox.value
+  ]));
+  const tenureFilterStorageKey = `chc-event-tenure-filter-${eventId}`;
+
   const scanCanvas = document.createElement('canvas');
   const scanContext = scanCanvas.getContext('2d', { willReadFrequently: true });
 
@@ -48,6 +68,7 @@
   let lastSyncLogId = Number.parseInt(root.dataset.lastLogId || '0', 10) || 0;
   let syncBusy = false;
   let syncTimer = null;
+  let manualSearchSequence = 0;
   const LIVE_SYNC_INTERVAL_MS = 30000;
 
   function ensureAudioReady() {
@@ -114,6 +135,110 @@
     if (type === 'danger') scannerMessage.classList.add('event-scanner-message--danger');
   }
 
+  function selectedTenureGroups() {
+    return tenureCheckboxes
+      .filter((checkbox) => checkbox.checked)
+      .map((checkbox) => checkbox.value)
+      .filter((code) => allTenureGroupCodes.includes(code));
+  }
+
+  function resetQrDebounce() {
+    lastQrValue = '';
+    lastQrAt = 0;
+  }
+
+  function saveTenureFilter() {
+    try {
+      window.sessionStorage.setItem(tenureFilterStorageKey, JSON.stringify(selectedTenureGroups()));
+    } catch (_) {
+      // La persistencia del filtro es auxiliar; la pantalla sigue funcionando sin sessionStorage.
+    }
+  }
+
+  function restoreTenureFilter() {
+    let stored = null;
+    try {
+      const raw = window.sessionStorage.getItem(tenureFilterStorageKey);
+      if (raw !== null) stored = JSON.parse(raw);
+    } catch (_) {
+      stored = null;
+    }
+
+    if (!Array.isArray(stored)) {
+      tenureCheckboxes.forEach((checkbox) => { checkbox.checked = true; });
+      return;
+    }
+
+    const valid = new Set(stored.filter((code) => allTenureGroupCodes.includes(code)));
+    tenureCheckboxes.forEach((checkbox) => { checkbox.checked = valid.has(checkbox.value); });
+  }
+
+  function describeSelectedTenureGroups(groups) {
+    if (!groups.length) return 'Ningún rango';
+    if (groups.length === allTenureGroupCodes.length) return 'Todos los rangos';
+    if (groups.length === 1) return tenureGroupLabels.get(groups[0]) || groups[0];
+    if (groups.length === 2) return groups.map((code) => tenureGroupLabels.get(code) || code).join(' y ');
+    return `${groups.length} rangos seleccionados`;
+  }
+
+  function updateFilteredExportLinks(groups) {
+    const params = new URLSearchParams();
+    params.set('scope', 'filtered');
+    if (groups.length) params.set('antiguedad', groups.join(','));
+    const query = params.toString();
+    if (filteredXlsxLink) filteredXlsxLink.href = `/admin/eventos/${encodeURIComponent(eventId)}/exportar.xlsx?${query}`;
+    if (filteredPdfLink) filteredPdfLink.href = `/admin/eventos/${encodeURIComponent(eventId)}/exportar.pdf?${query}`;
+  }
+
+  function attendeeRows() {
+    return [...document.querySelectorAll('.event-table tr[data-attendee-id]')];
+  }
+
+  function refreshTenureFilterView({ clearResultWhenOutside = true, rerunSearch = true } = {}) {
+    const groups = selectedTenureGroups();
+    const selected = new Set(groups);
+    let visibleCount = 0;
+    let attendedCount = 0;
+
+    attendeeRows().forEach((row) => {
+      const visible = selected.has(row.dataset.tenureGroup || '');
+      row.hidden = !visible;
+      if (!visible) return;
+      visibleCount += 1;
+      if (row.dataset.attended === '1') attendedCount += 1;
+    });
+
+    const label = describeSelectedTenureGroups(groups);
+    if (tenureFilterLabel) tenureFilterLabel.textContent = label;
+    if (tenureActiveTitle) tenureActiveTitle.textContent = label;
+    if (tenureActiveCounts) {
+      if (!groups.length) {
+        tenureActiveCounts.textContent = '0 invitados visibles · el escáner no registrará asistencias hasta seleccionar un rango';
+      } else {
+        tenureActiveCounts.textContent = `${visibleCount} invitado${visibleCount === 1 ? '' : 's'} visible${visibleCount === 1 ? '' : 's'} · ${attendedCount} asistente${attendedCount === 1 ? '' : 's'} en este filtro`;
+      }
+    }
+    if (filterEmptyRow) filterEmptyRow.hidden = visibleCount > 0;
+    updateFilteredExportLinks(groups);
+
+    if (clearResultWhenOutside && currentResultAttendee && !selected.has(currentResultAttendee.tenureGroup)) {
+      currentResultAttendee = null;
+      hideAwardButtons();
+      if (resultPanel) resultPanel.hidden = true;
+    }
+
+    if (rerunSearch && String(manualInput?.value || '').trim()) {
+      runManualSearch(true);
+    }
+  }
+
+  function setAllTenureGroups(checked) {
+    tenureCheckboxes.forEach((checkbox) => { checkbox.checked = checked; });
+    resetQrDebounce();
+    saveTenureFilter();
+    refreshTenureFilterView();
+  }
+
   function setCameraButtons(active) {
     if (startButton) startButton.disabled = active || !isOpen;
     if (stopButton) stopButton.disabled = !active;
@@ -139,8 +264,11 @@
     hideAwardButtons();
 
     if (!attendee) {
-      resultKicker.textContent = 'No registrado';
-      resultName.textContent = 'No se pudo validar al empleado';
+      const outsideFilter = code === 'OUTSIDE_TENURE_FILTER';
+      resultKicker.textContent = outsideFilter ? 'Fuera del filtro' : 'No registrado';
+      resultName.textContent = outsideFilter
+        ? 'No se encontró en la lista de antigüedad seleccionada'
+        : 'No se pudo validar al empleado';
       resultMeta.textContent = '';
       resultStatus.textContent = message || '';
       return;
@@ -148,7 +276,7 @@
 
     resultKicker.textContent = code === 'CHECKED_IN' ? 'Asistencia registrada' : 'Empleado identificado';
     resultName.textContent = `${attendee.employeeNumber} · ${attendee.fullName}`;
-    resultMeta.textContent = `${attendee.puesto || 'Sin puesto'} · Antigüedad: ${attendee.tenure}`;
+    resultMeta.textContent = `${attendee.puesto || 'Sin puesto'} · Antigüedad: ${attendee.tenure} · ${attendee.tenureGroupShortLabel || attendee.tenureGroupLabel || ''}`;
 
     if (attendee.awardType === 'PREMIO') {
       resultStatus.textContent = `Asistió. Premio entregado${attendee.awardDeliveredAt ? ` · ${attendee.awardDeliveredAt}` : ''}.`;
@@ -206,11 +334,12 @@
     lastQrValue = normalizedValue;
     lastQrAt = now;
     requestBusy = true;
-    setScannerMessage('QR detectado. Validando credencial e invitación…');
+    setScannerMessage('QR detectado. Validando credencial, invitación y antigüedad…');
 
     try {
       const payload = await postJson(`/admin/eventos/${encodeURIComponent(eventId)}/escanear`, {
-        qr_value: normalizedValue
+        qr_value: normalizedValue,
+        tenure_groups: selectedTenureGroups()
       });
       renderScanResult(payload.attendee, payload.message, payload.code);
       updateAttendeeRow(payload.attendee);
@@ -552,10 +681,27 @@
     if (secondaryText) cell.appendChild(createElement('span', 'table-secondary', secondaryText));
   }
 
-  function updateAttendeeRow(attendee) {
+  function updateAttendeeRow(attendee, { refreshFilter = true } = {}) {
     if (!attendee?.id) return;
     const row = document.querySelector(`.event-table tr[data-attendee-id="${Number(attendee.id)}"]`);
     if (!row) return;
+
+    row.dataset.attended = attendee.attended ? '1' : '0';
+    row.dataset.awardType = attendee.awardType || '';
+    if (attendee.tenureGroup) row.dataset.tenureGroup = attendee.tenureGroup;
+
+    const tenureCell = row.querySelector('[data-role="tenure"]');
+    if (tenureCell && attendee.tenureGroup) {
+      tenureCell.replaceChildren();
+      const badge = createElement(
+        'span',
+        `event-tenure-badge event-tenure-badge--${attendee.tenureGroupCssClass || 'unknown'}`,
+        attendee.tenureGroupBadgeLabel || attendee.tenureGroupShortLabel || attendee.tenureGroupLabel
+      );
+      tenureCell.appendChild(badge);
+      tenureCell.appendChild(createElement('strong', 'event-tenure-value', attendee.tenure || 'No disponible'));
+      tenureCell.appendChild(createElement('span', 'table-secondary', `Ingreso: ${attendee.startDate || 'No disponible'}`));
+    }
 
     const attendanceCell = row.querySelector('[data-role="attendance"]');
     if (attendanceCell) {
@@ -574,27 +720,37 @@
       }
     }
 
-    if (!isFiesta) return;
+    if (!isFiesta) {
+      if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
+      return;
+    }
     const awardCell = row.querySelector('[data-role="award"]');
-    if (!awardCell) return;
+    if (!awardCell) {
+      if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
+      return;
+    }
     awardCell.replaceChildren();
 
     if (attendee.awardType === 'PREMIO') {
       awardCell.appendChild(createElement('span', 'pill pill-success', 'Premio entregado'));
       if (attendee.awardDeliveredAt) awardCell.appendChild(createElement('span', 'table-secondary', attendee.awardDeliveredAt));
+      if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
       return;
     }
     if (attendee.awardType === 'CONSOLACION') {
       awardCell.appendChild(createElement('span', 'pill pill-success', 'Consolación entregada'));
       if (attendee.awardDeliveredAt) awardCell.appendChild(createElement('span', 'table-secondary', attendee.awardDeliveredAt));
+      if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
       return;
     }
     if (!attendee.attended) {
       awardCell.appendChild(createElement('span', 'pill pill-muted', 'Requiere asistencia'));
+      if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
       return;
     }
     if (!isOpen) {
       awardCell.appendChild(createElement('span', 'pill pill-muted', 'Sin entrega'));
+      if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
       return;
     }
 
@@ -607,6 +763,7 @@
     consolation.addEventListener('click', () => performAttendeeAction(attendee, 'award', 'CONSOLACION', 'LIST'));
     buttons.append(prize, consolation);
     awardCell.appendChild(buttons);
+    if (refreshFilter) refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
   }
 
   function updateLiveStats(event) {
@@ -635,7 +792,10 @@
 
       updateLiveStats(payload.event);
       const changedAttendees = Array.isArray(payload.attendees) ? payload.attendees : [];
-      changedAttendees.forEach((attendee) => updateAttendeeRow(attendee));
+      changedAttendees.forEach((attendee) => updateAttendeeRow(attendee, { refreshFilter: false }));
+      if (changedAttendees.length) {
+        refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
+      }
 
       if (currentResultAttendee?.id) {
         const changedCurrent = changedAttendees.find((attendee) => attendee.id === currentResultAttendee.id);
@@ -671,12 +831,12 @@
       if (action === 'checkin') {
         payload = await postJson(
           `/admin/eventos/${encodeURIComponent(eventId)}/asistentes/${encodeURIComponent(attendee.id)}/asistencia`,
-          {}
+          { tenure_groups: selectedTenureGroups() }
         );
       } else {
         payload = await postJson(
           `/admin/eventos/${encodeURIComponent(eventId)}/asistentes/${encodeURIComponent(attendee.id)}/premio`,
-          { award_type: awardType, source }
+          { award_type: awardType, source, tenure_groups: selectedTenureGroups() }
         );
       }
       setScannerMessage(payload.message || 'Cambio registrado.', 'success');
@@ -704,7 +864,14 @@
     const card = createElement('article', 'event-manual-result');
     const copy = createElement('div', 'event-manual-result__copy');
     copy.appendChild(createElement('strong', '', `${attendee.employeeNumber} · ${attendee.fullName}`));
-    copy.appendChild(createElement('span', '', `${attendee.puesto || 'Sin puesto'} · Antigüedad: ${attendee.tenure}`));
+    const tenureLine = createElement('span', 'event-manual-tenure');
+    tenureLine.appendChild(createElement(
+      'span',
+      `event-tenure-badge event-tenure-badge--${attendee.tenureGroupCssClass || 'unknown'}`,
+      attendee.tenureGroupBadgeLabel || attendee.tenureGroupShortLabel || attendee.tenureGroupLabel
+    ));
+    tenureLine.appendChild(document.createTextNode(` ${attendee.puesto || 'Sin puesto'} · ${attendee.tenure}`));
+    copy.appendChild(tenureLine);
 
     const statusParts = [];
     statusParts.push(attendee.attended ? `Asistió${attendee.attendedAt ? `: ${attendee.attendedAt}` : ''}` : 'Sin asistencia');
@@ -738,6 +905,7 @@
 
   async function runManualSearch(silent = false) {
     if (!manualResults) return;
+    const sequence = ++manualSearchSequence;
     const query = String(manualInput?.value || '').trim();
     if (!query) {
       manualResults.replaceChildren();
@@ -749,17 +917,24 @@
       manualResults.appendChild(createElement('p', 'muted', 'Buscando…'));
     }
     try {
-      const response = await fetch(`/admin/eventos/${encodeURIComponent(eventId)}/buscar?q=${encodeURIComponent(query)}`, {
-        headers: { Accept: 'application/json' }
+      const params = new URLSearchParams({ q: query });
+      const groups = selectedTenureGroups();
+      if (groups.length) params.set('antiguedad', groups.join(','));
+      else params.set('antiguedad', '');
+      const response = await fetch(`/admin/eventos/${encodeURIComponent(eventId)}/buscar?${params.toString()}`, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
       });
       const payload = await readJsonResponse(response);
+      if (sequence !== manualSearchSequence) return;
       manualResults.replaceChildren();
       if (!payload.attendees?.length) {
-        manualResults.appendChild(createElement('p', 'muted', 'No se encontró un empleado invitado con ese criterio.'));
+        manualResults.appendChild(createElement('p', 'muted', 'No se encontró un empleado dentro del filtro de antigüedad activo con ese criterio.'));
         return;
       }
       payload.attendees.forEach((attendee) => manualResults.appendChild(buildManualResult(attendee)));
     } catch (error) {
+      if (sequence !== manualSearchSequence) return;
       manualResults.replaceChildren(createElement('p', 'muted', error.message || 'No fue posible realizar la búsqueda.'));
     }
   }
@@ -773,7 +948,7 @@
     try {
       const payload = await postJson(
         `/admin/eventos/${encodeURIComponent(eventId)}/asistentes/${encodeURIComponent(currentResultAttendee.id)}/premio`,
-        { award_type: awardType, source: 'SCAN' }
+        { award_type: awardType, source: 'SCAN', tenure_groups: selectedTenureGroups() }
       );
       renderScanResult(payload.attendee, payload.message, payload.code);
       updateAttendeeRow(payload.attendee);
@@ -798,6 +973,49 @@
       if (consolationButton) consolationButton.disabled = false;
     }
   }
+
+  restoreTenureFilter();
+  refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
+
+  tenureCheckboxes.forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      resetQrDebounce();
+      saveTenureFilter();
+      refreshTenureFilterView();
+    });
+  });
+  tenureSelectAllButton?.addEventListener('click', () => setAllTenureGroups(true));
+  tenureClearButton?.addEventListener('click', () => setAllTenureGroups(false));
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!tenureFilterDetails?.open || tenureFilterDetails.contains(event.target)) return;
+    tenureFilterDetails.removeAttribute('open');
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && tenureFilterDetails?.open) {
+      tenureFilterDetails.removeAttribute('open');
+    }
+  });
+
+  document.addEventListener('submit', async (event) => {
+    const form = event.target.closest?.('.event-row-action-form');
+    if (!form) return;
+    event.preventDefault();
+    const row = form.closest('tr[data-attendee-id]');
+    const attendeeId = Number(row?.dataset.attendeeId || 0);
+    if (!attendeeId) return;
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    try {
+      const action = form.dataset.action;
+      const awardType = form.querySelector('input[name="award_type"]')?.value || null;
+      const source = form.querySelector('input[name="source"]')?.value || 'LIST';
+      await performAttendeeAction({ id: attendeeId }, action, awardType, source);
+    } finally {
+      if (submitButton?.isConnected) submitButton.disabled = false;
+    }
+  });
 
   setCameraPlaceholderVisible(true);
   setCameraButtons(false);

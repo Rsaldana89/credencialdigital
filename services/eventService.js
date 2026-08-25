@@ -1,5 +1,6 @@
 const { pool } = require('../config/db');
 const employeeService = require('./employeeService');
+const tenureService = require('./tenureService');
 
 const ACTIVE_DEPARTMENT_SQL = "UPPER(TRIM(COALESCE(p.department_name, ''))) <> 'BAJA'";
 const EVENT_TYPES = new Set(['GENERAL', 'FIESTA_PREMIOS']);
@@ -226,37 +227,49 @@ async function listEventAttendees(eventId, connection = pool) {
   return rows;
 }
 
-async function searchEventAttendees(eventId, search = '') {
+async function searchEventAttendees(eventId, search = '', selectedTenureGroups, eventRecord = null) {
   const id = parsePositiveId(eventId, 'Evento');
   const q = String(search || '').trim().slice(0, 100);
   if (!q) return [];
-  const like = `%${q}%`;
-  const key = employeeService.employeeNumberLookupKey(q);
-  const [rows] = await pool.execute(
-    `SELECT *
-     FROM chc_event_attendees
-     WHERE event_id = ?
-       AND (
-         employee_number LIKE ?
-         OR full_name_snapshot LIKE ?
-         OR puesto_snapshot LIKE ?
-       )
-     ORDER BY
-       CASE WHEN employee_number = ? THEN 0 ELSE 1 END,
-       full_name_snapshot,
-       employee_number
-     LIMIT 40`,
-    [id, like, like, like, key || q]
-  );
 
-  if (key && !rows.some((row) => employeeService.employeeNumberLookupKey(row.employee_number) === key)) {
-    const attendees = await listEventAttendees(id);
-    const normalizedMatch = attendees.find(
-      (row) => employeeService.employeeNumberLookupKey(row.employee_number) === key
-    );
-    if (normalizedMatch) rows.unshift(normalizedMatch);
-  }
-  return rows.slice(0, 40);
+  const event = eventRecord || await requireEvent(id);
+  const referenceDate = String(event.event_date || '').slice(0, 10);
+  const groups = tenureService.normalizeTenureGroupSelection(selectedTenureGroups);
+  if (!groups.length) return [];
+
+  const normalizedQuery = q
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const employeeKey = employeeService.employeeNumberLookupKey(q);
+  const attendees = await listEventAttendees(id);
+
+  return attendees
+    .filter((attendee) => tenureService.attendeeMatchesTenureGroups(attendee, referenceDate, groups))
+    .filter((attendee) => {
+      const employeeNumber = String(attendee.employee_number || '');
+      const employeeNumberKey = employeeService.employeeNumberLookupKey(employeeNumber);
+      if (employeeKey && employeeNumberKey === employeeKey) return true;
+      const searchable = [
+        employeeNumber,
+        attendee.full_name_snapshot,
+        attendee.puesto_snapshot,
+        attendee.department_snapshot
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      return searchable.includes(normalizedQuery);
+    })
+    .sort((left, right) => {
+      const leftExact = employeeKey && employeeService.employeeNumberLookupKey(left.employee_number) === employeeKey;
+      const rightExact = employeeKey && employeeService.employeeNumberLookupKey(right.employee_number) === employeeKey;
+      if (leftExact !== rightExact) return leftExact ? -1 : 1;
+      return String(left.full_name_snapshot || '').localeCompare(String(right.full_name_snapshot || ''), 'es-MX');
+    })
+    .slice(0, 40);
 }
 
 async function getAttendeeById(eventId, attendeeId, connection = pool, forUpdate = false) {
@@ -340,7 +353,7 @@ async function logScanFailure({ eventId, employeeNumber = null, actionType, acto
   }
 }
 
-async function checkInByEmployeeNumber(eventId, employeeNumber, actor, method = 'QR') {
+async function checkInByEmployeeNumber(eventId, employeeNumber, actor, method = 'QR', selectedTenureGroups) {
   const id = parsePositiveId(eventId, 'Evento');
   const source = method === 'MANUAL' ? 'MANUAL' : 'QR';
   const connection = await pool.getConnection();
@@ -362,6 +375,19 @@ async function checkInByEmployeeNumber(eventId, employeeNumber, actor, method = 
       });
       await connection.commit();
       return { event, attendee: null, status: 'NOT_INVITED', newlyCheckedIn: false };
+    }
+
+    const referenceDate = String(event.event_date || '').slice(0, 10);
+    const groups = tenureService.normalizeTenureGroupSelection(selectedTenureGroups);
+    if (!tenureService.attendeeMatchesTenureGroups(attendee, referenceDate, groups)) {
+      await connection.commit();
+      return {
+        event,
+        attendee: null,
+        status: 'OUTSIDE_TENURE_FILTER',
+        newlyCheckedIn: false,
+        outsideTenureFilter: true
+      };
     }
 
     let newlyCheckedIn = false;
@@ -400,14 +426,14 @@ async function checkInByEmployeeNumber(eventId, employeeNumber, actor, method = 
   }
 }
 
-async function checkInByAttendeeId(eventId, attendeeId, actor) {
+async function checkInByAttendeeId(eventId, attendeeId, actor, selectedTenureGroups) {
   const id = parsePositiveId(eventId, 'Evento');
   const attendee = await getAttendeeById(id, attendeeId);
   if (!attendee) throw makeUserError('El empleado no forma parte de este evento.', 'ATTENDEE_NOT_FOUND', 404);
-  return checkInByEmployeeNumber(id, attendee.employee_number, actor, 'MANUAL');
+  return checkInByEmployeeNumber(id, attendee.employee_number, actor, 'MANUAL', selectedTenureGroups);
 }
 
-async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIST') {
+async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIST', selectedTenureGroups) {
   const id = parsePositiveId(eventId, 'Evento');
   const aId = parsePositiveId(attendeeId, 'Asistente');
   const award = String(awardType || '').trim().toUpperCase();
@@ -427,6 +453,17 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
 
     const attendee = await getAttendeeById(id, aId, connection, true);
     if (!attendee) throw makeUserError('El empleado no forma parte de este evento.', 'ATTENDEE_NOT_FOUND', 404);
+
+    const referenceDate = String(event.event_date || '').slice(0, 10);
+    const groups = tenureService.normalizeTenureGroupSelection(selectedTenureGroups);
+    if (!tenureService.attendeeMatchesTenureGroups(attendee, referenceDate, groups)) {
+      throw makeUserError(
+        'El empleado no se encuentra en el filtro de antigüedad seleccionado.',
+        'OUTSIDE_TENURE_FILTER',
+        404
+      );
+    }
+
     if (!attendee.attended_at) {
       throw makeUserError('Primero registra la asistencia del empleado.', 'ATTENDANCE_REQUIRED', 409);
     }
@@ -486,15 +523,23 @@ async function deliverAward(eventId, attendeeId, awardType, actor, source = 'LIS
   }
 }
 
-async function getEventSnapshot(eventId) {
+async function getEventSnapshot(eventId, selectedTenureGroups = null) {
   const id = parsePositiveId(eventId, 'Evento');
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
     const event = await requireEvent(id, connection);
-    const attendees = await listEventAttendees(id, connection);
+    const allAttendees = await listEventAttendees(id, connection);
+    const referenceDate = String(event.event_date || '').slice(0, 10);
+    const hasExplicitFilter = selectedTenureGroups !== null && selectedTenureGroups !== undefined;
+    const groups = tenureService.normalizeTenureGroupSelection(selectedTenureGroups, {
+      defaultAll: !hasExplicitFilter
+    });
+    const attendees = hasExplicitFilter
+      ? allAttendees.filter((attendee) => tenureService.attendeeMatchesTenureGroups(attendee, referenceDate, groups))
+      : allAttendees;
     await connection.commit();
-    return { event, attendees };
+    return { event, attendees, allAttendees, selectedTenureGroups: groups, filtered: hasExplicitFilter };
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -612,27 +657,11 @@ function formatEmployeeNumber(value) {
 }
 
 function calculateTenure(startDate, referenceDate = new Date()) {
-  if (!startDate) return 'No disponible';
-  const startText = String(startDate).slice(0, 10);
-  const startMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startText);
-  if (!startMatch) return 'No disponible';
+  return tenureService.calculateTenureDetails(startDate, referenceDate).label;
+}
 
-  const refText = referenceDate instanceof Date
-    ? `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, '0')}-${String(referenceDate.getDate()).padStart(2, '0')}`
-    : String(referenceDate || '').slice(0, 10);
-  const refMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(refText);
-  if (!refMatch) return 'No disponible';
-
-  const start = { y: Number(startMatch[1]), m: Number(startMatch[2]), d: Number(startMatch[3]) };
-  const ref = { y: Number(refMatch[1]), m: Number(refMatch[2]), d: Number(refMatch[3]) };
-  let months = (ref.y - start.y) * 12 + (ref.m - start.m);
-  if (ref.d < start.d) months -= 1;
-  if (months < 0) return '0 meses';
-  const years = Math.floor(months / 12);
-  const remainingMonths = months % 12;
-  if (!years) return `${remainingMonths} ${remainingMonths === 1 ? 'mes' : 'meses'}`;
-  if (!remainingMonths) return `${years} ${years === 1 ? 'año' : 'años'}`;
-  return `${years} ${years === 1 ? 'año' : 'años'}, ${remainingMonths} ${remainingMonths === 1 ? 'mes' : 'meses'}`;
+function getTenureDetails(startDate, referenceDate = new Date()) {
+  return tenureService.calculateTenureDetails(startDate, referenceDate);
 }
 
 module.exports = {
@@ -655,5 +684,11 @@ module.exports = {
   logScanFailure,
   formatEmployeeNumber,
   calculateTenure,
+  getTenureDetails,
+  TENURE_GROUPS: tenureService.TENURE_GROUPS,
+  ALL_TENURE_GROUP_CODES: tenureService.ALL_TENURE_GROUP_CODES,
+  normalizeTenureGroupSelection: tenureService.normalizeTenureGroupSelection,
+  attendeeMatchesTenureGroups: tenureService.attendeeMatchesTenureGroups,
+  describeTenureGroupSelection: tenureService.describeTenureGroupSelection,
   makeUserError
 };

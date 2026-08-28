@@ -16,6 +16,8 @@ router.get('/:eventId/estado-vivo', eventController.liveState);
 router.post('/:eventId/escanear', verifyCsrfToken, eventController.scan);
 router.post('/:eventId/asistentes/:attendeeId/asistencia', verifyCsrfToken, eventController.checkIn);
 router.post('/:eventId/asistentes/:attendeeId/premio', verifyCsrfToken, eventController.award);
+router.post('/:eventId/invitados/actualizar', verifyCsrfToken, eventController.refreshInvitees);
+router.post('/:eventId/invitados/agregar', verifyCsrfToken, eventController.addInvitees);
 router.post('/:eventId/estado', verifyCsrfToken, eventController.setStatus);
 router.get('/:eventId/exportar.xlsx', eventController.exportXlsx);
 router.get('/:eventId/exportar.pdf', eventController.exportPdf);

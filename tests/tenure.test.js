@@ -91,4 +91,4 @@ assert.equal(
   false
 );
 
-console.log('Pruebas de antigüedad v1.0.48: OK');
+console.log('Pruebas de antigüedad v1.0.49: OK');

@@ -125,7 +125,7 @@ async function index(req, res, next) {
       title: 'Asistencia a eventos',
       events,
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.48'
+      pageStyles: '/css/events.css?v=1.0.49'
     });
   } catch (error) {
     return next(error);
@@ -142,7 +142,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.48'
+      pageStyles: '/css/events.css?v=1.0.49'
     });
   } catch (error) {
     return next(error);
@@ -174,7 +174,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.48'
+          pageStyles: '/css/events.css?v=1.0.49'
         });
       } catch (renderError) {
         return next(renderError);
@@ -218,7 +218,7 @@ async function show(req, res, next) {
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
       getTenureDetails: eventService.getTenureDetails,
-      pageStyles: '/css/events.css?v=1.0.48'
+      pageStyles: '/css/events.css?v=1.0.49'
     });
   } catch (error) {
     return next(error);
@@ -420,6 +420,80 @@ async function award(req, res, next) {
   }
 }
 
+async function refreshInvitees(req, res, next) {
+  try {
+    const result = await eventService.syncAllActiveInvitees(req.params.eventId);
+    let qrResult = null;
+    try {
+      qrResult = await employeeService.generateMissingTokens();
+    } catch (qrError) {
+      console.error('No fue posible completar la revisión de QR al actualizar invitados:', qrError.message);
+    }
+
+    const parts = [];
+    if (result.insertedCount > 0) {
+      parts.push(`${result.insertedCount} nuevo${result.insertedCount === 1 ? '' : 's'} invitado${result.insertedCount === 1 ? '' : 's'} agregado${result.insertedCount === 1 ? '' : 's'}`);
+    } else {
+      parts.push('La lista ya incluía a todos los empleados activos');
+    }
+    if (qrResult && !qrResult.busy) {
+      const qrChanges = Number(qrResult.generatedCount || 0) + Number(qrResult.reactivatedCount || 0);
+      if (qrChanges > 0) parts.push(`${qrChanges} QR actualizado${qrChanges === 1 ? '' : 's'}`);
+    }
+    setFlash(req, 'success', `${parts.join('. ')}.`);
+    return res.redirect(`/admin/eventos/${result.event.id}`);
+  } catch (error) {
+    if (error.status && error.status < 500) {
+      setFlash(req, 'danger', error.message);
+      return res.redirect(`/admin/eventos/${encodeURIComponent(req.params.eventId)}`);
+    }
+    return next(error);
+  }
+}
+
+async function addInvitees(req, res, next) {
+  try {
+    const result = await eventService.addActiveInviteesByNumber(
+      req.params.eventId,
+      req.body.employee_numbers
+    );
+
+    let qrResult = null;
+    if (result.insertedCount > 0) {
+      try {
+        qrResult = await employeeService.generateMissingTokens();
+      } catch (qrError) {
+        console.error('No fue posible completar la revisión de QR al agregar invitados:', qrError.message);
+      }
+    }
+
+    const parts = [];
+    if (result.insertedCount > 0) {
+      parts.push(`${result.insertedCount} invitado${result.insertedCount === 1 ? '' : 's'} agregado${result.insertedCount === 1 ? '' : 's'}`);
+    }
+    if (result.alreadyInvitedCount > 0) {
+      parts.push(`${result.alreadyInvitedCount} ya estaba${result.alreadyInvitedCount === 1 ? '' : 'n'} en la lista`);
+    }
+    if (result.notFoundCount > 0) {
+      parts.push(`${result.notFoundCount} número${result.notFoundCount === 1 ? '' : 's'} no corresponde${result.notFoundCount === 1 ? '' : 'n'} a un empleado activo`);
+    }
+    if (qrResult && !qrResult.busy) {
+      const qrChanges = Number(qrResult.generatedCount || 0) + Number(qrResult.reactivatedCount || 0);
+      if (qrChanges > 0) parts.push(`${qrChanges} QR actualizado${qrChanges === 1 ? '' : 's'}`);
+    }
+    if (!parts.length) parts.push('No hubo cambios en la lista');
+
+    setFlash(req, 'success', `${parts.join('. ')}.`);
+    return res.redirect(`/admin/eventos/${result.event.id}`);
+  } catch (error) {
+    if (error.status && error.status < 500) {
+      setFlash(req, 'danger', error.message);
+      return res.redirect(`/admin/eventos/${encodeURIComponent(req.params.eventId)}`);
+    }
+    return next(error);
+  }
+}
+
 async function setStatus(req, res, next) {
   try {
     const event = await eventService.setEventStatus(
@@ -492,6 +566,8 @@ module.exports = {
   scan,
   checkIn,
   award,
+  refreshInvitees,
+  addInvitees,
   setStatus,
   exportXlsx,
   exportPdf,

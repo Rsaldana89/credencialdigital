@@ -4,6 +4,7 @@
   data-event-id="<%= event.id %>"
   data-event-type="<%= event.event_type %>"
   data-event-status="<%= event.status %>"
+  data-invite-mode="<%= event.invite_mode %>"
   data-event-reference-date="<%= String(event.event_date || '').slice(0, 10) %>"
   data-all-tenure-groups="<%= tenureGroups.map((group) => group.code).join(',') %>"
   data-last-log-id="<%= latestLogId || 0 %>"
@@ -148,6 +149,44 @@
       </div>
     </div>
 
+    <details class="panel-card event-invite-management">
+      <summary class="event-invite-management__summary">
+        <span>
+          <strong>Gestionar invitados</strong>
+          <small>Agregar nuevos ingresos sin volver a crear el evento</small>
+        </span>
+        <span class="event-invite-management__chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="event-invite-management__body">
+        <% if (event.status !== 'OPEN') { %>
+          <p class="muted">El evento está cerrado. Reábrelo para agregar nuevos invitados.</p>
+        <% } else if (event.invite_mode === 'ALL_ACTIVE') { %>
+          <div class="event-invite-management__copy">
+            <strong>Actualizar con los empleados activos actuales</strong>
+            <p>Agrega únicamente a quienes hoy están activos y todavía no aparecen en esta lista. No elimina invitados ni modifica asistencias o premios ya registrados.</p>
+          </div>
+          <form method="post" action="/admin/eventos/<%= event.id %>/invitados/actualizar" class="event-invite-management__form" onsubmit="return confirm('Se agregarán únicamente los empleados activos que todavía no estén invitados. ¿Continuar?');">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="button button-primary" type="submit">Agregar nuevos ingresos</button>
+          </form>
+        <% } else { %>
+          <div class="event-invite-management__copy">
+            <strong>Este evento usa una selección manual</strong>
+            <p>Para respetar la lista original, captura solo los números de los nuevos empleados que quieras agregar. Deben estar activos.</p>
+          </div>
+          <form method="post" action="/admin/eventos/<%= event.id %>/invitados/agregar" class="event-invite-management__manual-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="event-field event-field--wide">
+              <span>Números de empleado</span>
+              <textarea class="form-control event-textarea" name="employee_numbers" rows="2" required placeholder="12331, 12350 o uno por línea"></textarea>
+            </label>
+            <button class="button button-primary" type="submit">Agregar a la lista</button>
+          </form>
+        <% } %>
+        <p class="event-invite-management__note">Los nuevos invitados conservan una fotografía de nombre, puesto, departamento y fecha de ingreso al momento de agregarlos. Si falta su QR, también se revisa su generación automática.</p>
+      </div>
+    </details>
+
     <section class="event-live-stats">
       <article><strong id="event-stat-invited"><%= event.invited_count || 0 %></strong><span>Total invitados</span></article>
       <article><strong id="event-stat-attended"><%= event.attended_count || 0 %></strong><span>Total asistentes</span></article>
@@ -263,5 +302,5 @@
   </div>
 </section>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.48" defer></script>
-<script src="/js/events-show.js?v=1.0.48" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.49" defer></script>
+<script src="/js/events-show.js?v=1.0.49" defer></script>

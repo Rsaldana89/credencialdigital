@@ -78,6 +78,7 @@
   let syncTimer = null;
   let manualSearchSequence = 0;
   let scannerWasActiveBeforeCollapse = false;
+  let pendingInviteRefresh = false;
   const LIVE_SYNC_INTERVAL_MS = 30000;
 
   function ensureAudioReady() {
@@ -677,6 +678,7 @@
     releaseStream();
     setCameraPlaceholderVisible(true);
     setCameraButtons(false);
+    if (pendingInviteRefresh && !requestBusy) window.location.reload();
   }
 
   async function setScannerCollapsed(collapsed) {
@@ -821,6 +823,27 @@
     if (statConsolations) statConsolations.textContent = String(event.consolationCount ?? 0);
   }
 
+  function localInviteCount() {
+    return document.querySelectorAll('.event-table tr[data-attendee-id]').length;
+  }
+
+  function handleInviteCountChange(serverCount) {
+    const expected = Number(serverCount || 0);
+    if (!Number.isFinite(expected) || expected === localInviteCount()) return false;
+
+    pendingInviteRefresh = true;
+    if (!scanning && !requestBusy) {
+      window.location.reload();
+      return true;
+    }
+
+    setScannerMessage(
+      'Se agregaron nuevos invitados desde otro dispositivo. Puedes seguir escaneando; la lista se recargará al ocultar o detener el escáner.',
+      'success'
+    );
+    return false;
+  }
+
   async function syncLiveState() {
     if (syncBusy || document.hidden) return;
     syncBusy = true;
@@ -838,6 +861,7 @@
       }
 
       updateLiveStats(payload.event);
+      if (handleInviteCountChange(payload.event?.invitedCount)) return;
       const changedAttendees = Array.isArray(payload.attendees) ? payload.attendees : [];
       changedAttendees.forEach((attendee) => updateAttendeeRow(attendee, { refreshFilter: false }));
       if (changedAttendees.length) {

@@ -1,3 +1,15 @@
+## v1.0.49 - Nuevos ingresos en eventos ya creados
+
+- Los eventos creados con **Todos los activos** ahora incluyen una sección plegable **Gestionar invitados** con el botón **Agregar nuevos ingresos**.
+- Al actualizar, solo se agregan empleados actualmente activos que todavía no formen parte de la lista; nunca se borran invitados ni se modifican asistencias o premios existentes.
+- Los eventos creados con **Selección manual** permiten agregar empleados activos por número, sin convertir el evento en una lista de todos los activos.
+- La operación usa una transacción y bloqueo del evento para evitar duplicados si dos administradores actualizan al mismo tiempo.
+- Después de agregar invitados se revisan QR faltantes/reingresos usando la misma lógica existente de credenciales.
+- La sincronización entre dispositivos sigue cada 30 segundos; si otro equipo agregó invitados, la vista se recarga cuando no está escaneando, o al detener/ocultar el escáner si estaba activo.
+- No requiere cambios de estructura ni scripts SQL.
+
+Ver `INVITADOS_NUEVOS_v1.0.49_LEEME.md`.
+
 ## v1.0.48 - Interfaz plegable y reportes legibles
 
 - Corrige el PDF de eventos para que el texto en español sea legible en Railway y en cualquier navegador/visor PDF.

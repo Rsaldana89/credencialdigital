@@ -88,6 +88,155 @@ async function listActiveEmployees(connection = pool) {
   return rows;
 }
 
+async function insertAttendeeSnapshots(connection, eventId, employees, { ignoreDuplicates = false } = {}) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const list = Array.isArray(employees) ? employees.filter(Boolean) : [];
+  if (!list.length) return 0;
+
+  let insertedCount = 0;
+  const batchSize = 200;
+  const insertKeyword = ignoreDuplicates ? 'INSERT IGNORE' : 'INSERT';
+
+  for (let index = 0; index < list.length; index += batchSize) {
+    const batch = list.slice(index, index + batchSize);
+    const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, NOW())').join(',');
+    const params = [];
+    batch.forEach((employee) => {
+      params.push(
+        id,
+        String(employee.employee_number).trim(),
+        String(employee.full_name || '').trim() || `Empleado ${employee.employee_number}`,
+        String(employee.puesto || '').trim() || null,
+        String(employee.department_name || '').trim() || null,
+        employee.start_date ? String(employee.start_date).slice(0, 10) : null
+      );
+    });
+
+    const [result] = await connection.execute(
+      `${insertKeyword} INTO chc_event_attendees
+        (event_id, employee_number, full_name_snapshot, puesto_snapshot,
+         department_snapshot, start_date_snapshot, invited_at)
+       VALUES ${placeholders}`,
+      params
+    );
+    insertedCount += Number(result.affectedRows || 0);
+  }
+
+  return insertedCount;
+}
+
+async function lockEventForInviteChanges(eventId, connection) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const [rows] = await connection.execute(
+    `SELECT id, event_type, event_name, event_date, invite_mode, status
+     FROM chc_events
+     WHERE id = ?
+     LIMIT 1
+     FOR UPDATE`,
+    [id]
+  );
+  const event = rows[0] || null;
+  if (!event) throw makeUserError('El evento no existe.', 'EVENT_NOT_FOUND', 404);
+  if (event.status !== 'OPEN') {
+    throw makeUserError('Reabre el evento antes de modificar sus invitados.', 'EVENT_CLOSED', 409);
+  }
+  return event;
+}
+
+async function getExistingInviteLookupKeys(eventId, connection) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const [rows] = await connection.execute(
+    `SELECT employee_number
+     FROM chc_event_attendees
+     WHERE event_id = ?`,
+    [id]
+  );
+  return new Set(rows.map((row) => employeeService.employeeNumberLookupKey(row.employee_number)).filter(Boolean));
+}
+
+async function syncAllActiveInvitees(eventId) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const event = await lockEventForInviteChanges(id, connection);
+    if (event.invite_mode !== 'ALL_ACTIVE') {
+      throw makeUserError(
+        'Este evento se creó con selección manual. Agrega los nuevos empleados por número para respetar la lista original.',
+        'SELECTED_EVENT_REQUIRES_MANUAL_INVITES',
+        409
+      );
+    }
+
+    const activeEmployees = await listActiveEmployees(connection);
+    const existingKeys = await getExistingInviteLookupKeys(id, connection);
+    const missingEmployees = activeEmployees.filter((employee) => {
+      const key = getEmployeeLookupKey(employee);
+      return key && !existingKeys.has(key);
+    });
+
+    const insertedCount = await insertAttendeeSnapshots(connection, id, missingEmployees, { ignoreDuplicates: true });
+    if (insertedCount > 0) {
+      await connection.execute('UPDATE chc_events SET updated_at = NOW() WHERE id = ?', [id]);
+    }
+
+    await connection.commit();
+    return {
+      event,
+      insertedCount,
+      activeCount: activeEmployees.length,
+      alreadyInvitedCount: activeEmployees.length - missingEmployees.length,
+      detectedMissingCount: missingEmployees.length
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function addActiveInviteesByNumber(eventId, employeeNumbers) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const selectedKeys = normalizeSelectedNumbers([], employeeNumbers);
+  if (!selectedKeys.size) {
+    throw makeUserError('Captura al menos un número de empleado.', 'NO_EMPLOYEE_NUMBERS');
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const event = await lockEventForInviteChanges(id, connection);
+    const activeEmployees = await listActiveEmployees(connection);
+    const requestedEmployees = activeEmployees.filter((employee) => selectedKeys.has(getEmployeeLookupKey(employee)));
+    const foundKeys = new Set(requestedEmployees.map(getEmployeeLookupKey).filter(Boolean));
+    const notFoundCount = [...selectedKeys].filter((key) => !foundKeys.has(key)).length;
+
+    const existingKeys = await getExistingInviteLookupKeys(id, connection);
+    const missingEmployees = requestedEmployees.filter((employee) => !existingKeys.has(getEmployeeLookupKey(employee)));
+    const alreadyInvitedCount = requestedEmployees.length - missingEmployees.length;
+    const insertedCount = await insertAttendeeSnapshots(connection, id, missingEmployees, { ignoreDuplicates: true });
+
+    if (insertedCount > 0) {
+      await connection.execute('UPDATE chc_events SET updated_at = NOW() WHERE id = ?', [id]);
+    }
+
+    await connection.commit();
+    return {
+      event,
+      insertedCount,
+      alreadyInvitedCount,
+      notFoundCount,
+      requestedCount: selectedKeys.size
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 async function createEvent({
   eventName,
   eventType,
@@ -142,29 +291,7 @@ async function createEvent({
     );
     const eventId = Number(eventResult.insertId);
 
-    const batchSize = 200;
-    for (let index = 0; index < invitedEmployees.length; index += batchSize) {
-      const batch = invitedEmployees.slice(index, index + batchSize);
-      const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, NOW())').join(',');
-      const params = [];
-      batch.forEach((employee) => {
-        params.push(
-          eventId,
-          String(employee.employee_number).trim(),
-          String(employee.full_name || '').trim() || `Empleado ${employee.employee_number}`,
-          String(employee.puesto || '').trim() || null,
-          String(employee.department_name || '').trim() || null,
-          employee.start_date ? String(employee.start_date).slice(0, 10) : null
-        );
-      });
-      await connection.execute(
-        `INSERT INTO chc_event_attendees
-          (event_id, employee_number, full_name_snapshot, puesto_snapshot,
-           department_snapshot, start_date_snapshot, invited_at)
-         VALUES ${placeholders}`,
-        params
-      );
-    }
+    await insertAttendeeSnapshots(connection, eventId, invitedEmployees);
 
     await connection.commit();
     return { eventId, invitedCount: invitedEmployees.length };
@@ -668,6 +795,8 @@ module.exports = {
   EVENT_TYPES,
   listActiveEmployees,
   createEvent,
+  syncAllActiveInvitees,
+  addActiveInviteesByNumber,
   listEvents,
   getEvent,
   requireEvent,

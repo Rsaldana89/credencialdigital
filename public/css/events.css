@@ -831,3 +831,73 @@
   .event-scanner-sticky--collapsed .event-tenure-active-summary strong { font-size: .75rem; }
   .event-scanner-sticky--collapsed .event-tenure-active-summary span { font-size: .66rem; }
 }
+
+
+/* Gestión de invitados posteriores a la creación del evento (v1.0.49) */
+.event-invite-management {
+  padding: 0;
+  overflow: visible;
+}
+.event-invite-management__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.event-invite-management__summary::-webkit-details-marker { display: none; }
+.event-invite-management__summary > span:first-child { min-width: 0; }
+.event-invite-management__summary strong,
+.event-invite-management__summary small { display: block; }
+.event-invite-management__summary strong { color: #4c111c; font-size: .92rem; }
+.event-invite-management__summary small { margin-top: 2px; color: #6b6f75; font-size: .76rem; font-weight: 500; }
+.event-invite-management__chevron {
+  flex: 0 0 auto;
+  color: #6d1725;
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform .16s ease;
+}
+.event-invite-management[open] .event-invite-management__chevron { transform: rotate(180deg); }
+.event-invite-management__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px 18px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid #ece6e2;
+  background: #fcfbfa;
+}
+.event-invite-management__copy { min-width: 0; }
+.event-invite-management__copy strong { color: #24262a; font-size: .9rem; }
+.event-invite-management__copy p { margin: 5px 0 0; color: #656971; font-size: .8rem; line-height: 1.45; }
+.event-invite-management__form { margin: 0; }
+.event-invite-management__manual-form {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin: 0;
+}
+.event-invite-management__manual-form .event-field { margin: 0; }
+.event-invite-management__note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px dashed #ded5d0;
+  color: #72767c;
+  font-size: .73rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .event-invite-management__summary { padding: 12px 13px; }
+  .event-invite-management__body { grid-template-columns: 1fr; padding: 12px 13px 14px; }
+  .event-invite-management__form,
+  .event-invite-management__form .button { width: 100%; }
+  .event-invite-management__manual-form { grid-template-columns: 1fr; }
+  .event-invite-management__manual-form .button { width: 100%; }
+}

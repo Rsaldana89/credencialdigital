@@ -125,7 +125,7 @@ async function index(req, res, next) {
       title: 'Asistencia a eventos',
       events,
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.49'
+      pageStyles: '/css/events.css?v=1.0.50'
     });
   } catch (error) {
     return next(error);
@@ -142,7 +142,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.49'
+      pageStyles: '/css/events.css?v=1.0.50'
     });
   } catch (error) {
     return next(error);
@@ -174,7 +174,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.49'
+          pageStyles: '/css/events.css?v=1.0.50'
         });
       } catch (renderError) {
         return next(renderError);
@@ -218,7 +218,7 @@ async function show(req, res, next) {
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
       getTenureDetails: eventService.getTenureDetails,
-      pageStyles: '/css/events.css?v=1.0.49'
+      pageStyles: '/css/events.css?v=1.0.50'
     });
   } catch (error) {
     return next(error);

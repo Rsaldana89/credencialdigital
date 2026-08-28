@@ -238,8 +238,8 @@
                 data-attended="<%= attendee.attended_at ? '1' : '0' %>"
                 data-award-type="<%= attendee.award_type || '' %>"
               >
-                <td data-label="Empleado"><strong><%= formatEmployeeNumber(attendee.employee_number) %></strong></td>
-                <td data-label="Nombre / puesto">
+                <td data-label="Empleado" data-role="employee"><strong><%= formatEmployeeNumber(attendee.employee_number) %></strong></td>
+                <td data-label="Nombre / puesto" data-role="identity">
                   <strong><%= attendee.full_name_snapshot %></strong>
                   <span class="table-secondary"><%= attendee.puesto_snapshot || 'Sin puesto' %> · <%= attendee.department_snapshot || 'Sin departamento' %></span>
                 </td>
@@ -302,5 +302,5 @@
   </div>
 </section>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.49" defer></script>
-<script src="/js/events-show.js?v=1.0.49" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.50" defer></script>
+<script src="/js/events-show.js?v=1.0.50" defer></script>

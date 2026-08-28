@@ -1,3 +1,14 @@
+## v1.0.50 - Tarjetas compactas en móvil
+
+- Compacta la lista de asistentes en celular sin reducir el tamaño de los textos.
+- Cada invitado se presenta en una tarjeta de dos columnas para aprovechar mejor el ancho y mostrar más personas en pantalla.
+- Antigüedad y asistencia quedan alineadas en una misma franja; premios ocupa una franja propia solo cuando corresponde.
+- Corrige el encimado del texto del filtro de antigüedad cuando el escáner está plegado en pantallas angostas.
+- La vista de escritorio conserva su tabla actual.
+- No requiere cambios de base de datos.
+
+Ver `TARJETAS_MOVILES_v1.0.50_LEEME.md`.
+
 ## v1.0.49 - Nuevos ingresos en eventos ya creados
 
 - Los eventos creados con **Todos los activos** ahora incluyen una sección plegable **Gestionar invitados** con el botón **Agregar nuevos ingresos**.

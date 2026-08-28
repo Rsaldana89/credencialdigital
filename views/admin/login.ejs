@@ -3,7 +3,7 @@
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <p class="eyebrow">Administración</p>
     <h1>Acceso al panel</h1>
-    <p class="muted">Ingresa con el usuario y contraseña configurados en el archivo .env.</p>
+    <p class="muted">Ingresa con un usuario autorizado de la aplicación.</p>
 
     <% if (typeof loginError !== 'undefined' && loginError) { %>
       <div class="alert alert-danger" role="alert"><%= loginError %></div>

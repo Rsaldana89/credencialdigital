@@ -1,0 +1,121 @@
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">Administración</p>
+    <h1>Usuarios de la aplicación</h1>
+    <p class="muted">Crea y administra accesos sin editar variables de entorno ni volver a desplegar el sistema.</p>
+  </div>
+  <a class="button button-secondary" href="/admin">Volver al panel</a>
+</section>
+
+<section class="user-admin-grid">
+  <article class="panel-card user-create-card">
+    <h2>Crear usuario</h2>
+    <p class="muted">La contraseña se protege mediante un hash seguro; nunca se almacena en texto plano.</p>
+    <form method="post" action="/admin/usuarios" autocomplete="off">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <label class="form-label" for="display_name">Nombre para mostrar</label>
+      <input class="form-control" id="display_name" name="display_name" type="text" maxlength="120" placeholder="Ej. Daniel López">
+
+      <label class="form-label" for="username">Usuario</label>
+      <input class="form-control" id="username" name="username" type="text" minlength="3" maxlength="80" required autocapitalize="none" autocomplete="off" placeholder="Ej. capitalhumano3">
+
+      <label class="form-label" for="role">Tipo de acceso</label>
+      <select class="form-control" id="role" name="role" required>
+        <option value="capital_humano">Capital Humano</option>
+        <option value="admin">Administrador</option>
+      </select>
+      <p class="help-text">Capital Humano puede usar credenciales y eventos. Solo Administrador puede gestionar usuarios.</p>
+
+      <label class="form-label" for="password">Contraseña inicial</label>
+      <input class="form-control" id="password" name="password" type="password" minlength="8" maxlength="200" required autocomplete="new-password">
+
+      <button class="button button-primary button-block" type="submit">Crear usuario</button>
+    </form>
+  </article>
+
+  <article class="panel-card user-list-card">
+    <div class="user-list-heading">
+      <div>
+        <h2>Usuarios registrados</h2>
+        <p class="muted"><%= users.length %> usuario<%= users.length === 1 ? '' : 's' %> en la base de datos.</p>
+      </div>
+    </div>
+
+    <div class="user-cards">
+      <% users.forEach((user) => { %>
+        <article class="user-card <%= Number(user.is_active) === 1 ? '' : 'user-card-inactive' %>">
+          <div class="user-card-summary">
+            <div>
+              <strong><%= user.display_name || user.username %></strong>
+              <span class="mono">@<%= user.username %></span>
+            </div>
+            <div class="user-card-badges">
+              <span class="pill <%= user.role === 'admin' ? 'pill-admin' : 'pill-muted' %>"><%= user.role === 'admin' ? 'Administrador' : 'Capital Humano' %></span>
+              <span class="pill <%= Number(user.is_active) === 1 ? 'pill-success' : 'pill-danger' %>"><%= Number(user.is_active) === 1 ? 'Activo' : 'Desactivado' %></span>
+            </div>
+          </div>
+
+          <dl class="user-meta">
+            <div><dt>Último acceso</dt><dd><%= formatLoginDate(user.last_login_at) %></dd></div>
+            <div><dt>Creado por</dt><dd><%= user.created_by || 'Sistema' %></dd></div>
+          </dl>
+
+          <details class="user-manage-details">
+            <summary>Administrar usuario</summary>
+            <div class="user-manage-body">
+              <form method="post" action="/admin/usuarios/<%= user.id %>/actualizar" class="user-edit-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                <label class="form-label" for="display_name_<%= user.id %>">Nombre para mostrar</label>
+                <input class="form-control" id="display_name_<%= user.id %>" name="display_name" type="text" maxlength="120" value="<%= user.display_name || user.username %>">
+
+                <div class="user-edit-row">
+                  <div>
+                    <label class="form-label" for="role_<%= user.id %>">Tipo de acceso</label>
+                    <select class="form-control" id="role_<%= user.id %>" name="role" <%= Number(adminUserId) === Number(user.id) ? 'disabled' : '' %>>
+                      <option value="capital_humano" <%= user.role === 'capital_humano' ? 'selected' : '' %>>Capital Humano</option>
+                      <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Administrador</option>
+                    </select>
+                    <% if (Number(adminUserId) === Number(user.id)) { %>
+                      <input type="hidden" name="role" value="<%= user.role %>">
+                    <% } %>
+                  </div>
+                  <div>
+                    <label class="form-label" for="is_active_<%= user.id %>">Estado</label>
+                    <select class="form-control" id="is_active_<%= user.id %>" name="is_active" <%= Number(adminUserId) === Number(user.id) ? 'disabled' : '' %>>
+                      <option value="1" <%= Number(user.is_active) === 1 ? 'selected' : '' %>>Activo</option>
+                      <option value="0" <%= Number(user.is_active) !== 1 ? 'selected' : '' %>>Desactivado</option>
+                    </select>
+                    <% if (Number(adminUserId) === Number(user.id)) { %>
+                      <input type="hidden" name="is_active" value="1">
+                    <% } %>
+                  </div>
+                </div>
+                <% if (Number(adminUserId) === Number(user.id)) { %>
+                  <p class="help-text">Tu propia cuenta no se puede desactivar ni cambiar de rol desde aquí.</p>
+                <% } %>
+                <button class="button button-secondary" type="submit">Guardar cambios</button>
+              </form>
+
+              <form method="post" action="/admin/usuarios/<%= user.id %>/contrasena" class="user-password-form" autocomplete="off">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <h3>Cambiar contraseña</h3>
+                <label class="form-label" for="password_<%= user.id %>">Nueva contraseña</label>
+                <input class="form-control" id="password_<%= user.id %>" name="password" type="password" minlength="8" maxlength="200" required autocomplete="new-password">
+                <label class="form-label" for="password_confirmation_<%= user.id %>">Confirmar contraseña</label>
+                <input class="form-control" id="password_confirmation_<%= user.id %>" name="password_confirmation" type="password" minlength="8" maxlength="200" required autocomplete="new-password">
+                <button class="button button-primary" type="submit">Cambiar contraseña</button>
+              </form>
+            </div>
+          </details>
+        </article>
+      <% }) %>
+    </div>
+  </article>
+</section>
+
+<section class="panel-card env-bootstrap-note">
+  <h2>Variables de entorno</h2>
+  <p>Los usuarios configurados actualmente en Railway se importan automáticamente a esta tabla únicamente cuando la tabla está vacía. Después de eso, el acceso se administra desde aquí y ya no depende de modificar las variables para crear usuarios nuevos.</p>
+</section>

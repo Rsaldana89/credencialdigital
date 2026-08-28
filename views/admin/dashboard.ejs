@@ -38,6 +38,14 @@
     <p>Importa un ZIP con fotografías nombradas por número de empleado y descarga un reporte de resultados.</p>
     <a class="button button-primary" href="/admin/fotografias/importar">Importar fotografías</a>
   </article>
+
+  <% if (adminRole === 'admin') { %>
+    <article class="action-card">
+      <h2>Usuarios de la aplicación</h2>
+      <p>Crea accesos, activa o desactiva usuarios y cambia contraseñas sin editar Railway.</p>
+      <a class="button button-primary" href="/admin/usuarios">Administrar usuarios</a>
+    </article>
+  <% } %>
 </section>
 
 <details class="advanced-options advanced-options-dashboard">

@@ -9,6 +9,7 @@ const { attachCsrfToken } = require('./middleware/csrf');
 const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const eventRoutes = require('./routes/eventRoutes');
+const adminAuthService = require('./services/adminAuthService');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -72,7 +73,10 @@ app.use(attachCsrfToken);
 app.use((req, res, next) => {
   res.locals.currentPath = req.path;
   res.locals.isAuthenticated = Boolean(req.session.adminAuthenticated);
+  res.locals.adminUserId = req.session.adminUserId || null;
   res.locals.adminUser = req.session.adminUser || null;
+  res.locals.adminDisplayName = req.session.adminDisplayName || req.session.adminUser || null;
+  res.locals.adminRole = req.session.adminRole || null;
   res.locals.flash = req.session.flash || null;
   delete req.session.flash;
   next();
@@ -120,6 +124,10 @@ if (require.main === module) {
     try {
       await testConnection();
       console.log(`Conexión MySQL correcta: ${process.env.DB_NAME || 'sistema_gestion'}`);
+      const bootstrap = await adminAuthService.initialize();
+      if (bootstrap.created > 0) {
+        console.log(`Usuarios administrativos iniciales importados a MySQL: ${bootstrap.created}`);
+      }
     } catch (error) {
       console.error('No fue posible conectar con MySQL:', error.message);
       console.error('Revisa el archivo .env y ejecuta database/schema_local.sql.');

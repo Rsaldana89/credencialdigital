@@ -5,7 +5,7 @@ const path = require('path');
 const express = require('express');
 const multer = require('multer');
 const adminController = require('../controllers/adminController');
-const { requireAdmin, redirectIfAuthenticated } = require('../middleware/auth');
+const { requireAdmin, redirectIfAuthenticated, requireRole } = require('../middleware/auth');
 const { verifyCsrfToken } = require('../middleware/csrf');
 
 const router = express.Router();
@@ -57,10 +57,16 @@ const bulkZipUpload = multer({
 router.get('/login', redirectIfAuthenticated, adminController.loginForm);
 router.post('/login', redirectIfAuthenticated, verifyCsrfToken, adminController.login);
 router.get('/logout', adminController.logout);
+router.post('/logout', verifyCsrfToken, adminController.logout);
 
 router.use(requireAdmin);
 
 router.get('/', adminController.dashboard);
+router.get('/usuarios', requireRole('admin'), adminController.users);
+router.post('/usuarios', requireRole('admin'), verifyCsrfToken, adminController.createUser);
+router.post('/usuarios/:id/actualizar', requireRole('admin'), verifyCsrfToken, adminController.updateUser);
+router.post('/usuarios/:id/contrasena', requireRole('admin'), verifyCsrfToken, adminController.resetUserPassword);
+
 router.get('/empleados', adminController.employees);
 router.post('/empleados/descargar-qrs', verifyCsrfToken, adminController.downloadQrPackage);
 

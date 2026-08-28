@@ -24,11 +24,25 @@
           <a class="nav-link <%= currentPath.startsWith('/admin/empleados') ? 'active' : '' %>" href="/admin/empleados">Empleados</a>
           <a class="nav-link <%= currentPath.startsWith('/admin/eventos') ? 'active' : '' %>" href="/admin/eventos">Eventos</a>
           <a class="nav-link <%= currentPath.startsWith('/admin/fotografias') ? 'active' : '' %>" href="/admin/fotografias/importar">Fotografías</a>
-          <a class="nav-link" href="/admin/logout">Salir</a>
+          <% if (adminRole === 'admin') { %>
+            <a class="nav-link <%= currentPath.startsWith('/admin/usuarios') ? 'active' : '' %>" href="/admin/usuarios">Usuarios</a>
+          <% } %>
         <% } else { %>
           <a class="nav-link" href="/admin/login">Administración</a>
         <% } %>
       </nav>
+      <% if (isAuthenticated) { %>
+        <div class="session-actions" aria-label="Sesión administrativa">
+          <span class="session-user" title="Usuario conectado">
+            <span class="session-user-name"><%= adminDisplayName || adminUser %></span>
+            <small><%= adminRole === 'admin' ? 'Administrador' : 'Capital Humano' %></small>
+          </span>
+          <form method="post" action="/admin/logout" class="logout-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="logout-button" type="submit">Cerrar sesión</button>
+          </form>
+        </div>
+      <% } %>
     </div>
   </header>
   <% } %>

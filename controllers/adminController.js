@@ -7,6 +7,7 @@ const photoService = require('../services/photoService');
 const qrService = require('../services/qrService');
 const bulkPhotoImportService = require('../services/bulkPhotoImportService');
 const adminAuthService = require('../services/adminAuthService');
+const { formatUtcDateTimeInEventZone } = require('../utils/timeZone');
 
 function formatDate(value) {
   if (!value) return 'No disponible';
@@ -66,7 +67,7 @@ function loginForm(req, res) {
 
 async function login(req, res, next) {
   try {
-    const authenticatedUser = adminAuthService.authenticate(
+    const authenticatedUser = await adminAuthService.authenticate(
       req.body.username,
       req.body.password
     );
@@ -85,8 +86,11 @@ async function login(req, res, next) {
     req.session.regenerate((error) => {
       if (error) return next(error);
       req.session.adminAuthenticated = true;
+      req.session.adminUserId = authenticatedUser.id;
       req.session.adminUser = authenticatedUser.username;
+      req.session.adminDisplayName = authenticatedUser.displayName;
       req.session.adminRole = authenticatedUser.role;
+      req.session.adminValidatedAt = Date.now();
       req.session.csrfToken = crypto.randomBytes(32).toString('hex');
       req.session.flash = { type: 'success', message: 'Sesión iniciada correctamente.' };
       return res.redirect(returnTo);
@@ -102,6 +106,62 @@ function logout(req, res, next) {
     res.clearCookie('chc_credenciales_sid');
     return res.redirect('/admin/login');
   });
+}
+
+
+async function users(req, res, next) {
+  try {
+    const userList = await adminAuthService.listUsers();
+    return res.render('admin/users', {
+      title: 'Usuarios de la aplicación',
+      users: userList,
+      formatLoginDate: (value) => formatUtcDateTimeInEventZone(value, 'Nunca')
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function createUser(req, res) {
+  try {
+    await adminAuthService.createUser({
+      username: req.body.username,
+      displayName: req.body.display_name,
+      password: req.body.password,
+      role: req.body.role
+    }, req.session.adminUser);
+    setFlash(req, 'success', 'Usuario creado correctamente.');
+  } catch (error) {
+    setFlash(req, 'danger', error.message || 'No fue posible crear el usuario.');
+  }
+  return res.redirect('/admin/usuarios');
+}
+
+async function updateUser(req, res) {
+  try {
+    await adminAuthService.updateUser(req.params.id, {
+      displayName: req.body.display_name,
+      role: req.body.role,
+      isActive: req.body.is_active
+    }, req.session.adminUserId);
+    setFlash(req, 'success', 'Usuario actualizado correctamente.');
+  } catch (error) {
+    setFlash(req, 'danger', error.message || 'No fue posible actualizar el usuario.');
+  }
+  return res.redirect('/admin/usuarios');
+}
+
+async function resetUserPassword(req, res) {
+  try {
+    const password = String(req.body.password || '');
+    const confirmation = String(req.body.password_confirmation || '');
+    if (password !== confirmation) throw new Error('La confirmación de contraseña no coincide.');
+    await adminAuthService.resetPassword(req.params.id, password);
+    setFlash(req, 'success', 'Contraseña actualizada correctamente.');
+  } catch (error) {
+    setFlash(req, 'danger', error.message || 'No fue posible actualizar la contraseña.');
+  }
+  return res.redirect('/admin/usuarios');
 }
 
 async function dashboard(req, res, next) {
@@ -438,6 +498,10 @@ module.exports = {
   loginForm,
   login,
   logout,
+  users,
+  createUser,
+  updateUser,
+  resetUserPassword,
   dashboard,
   employees,
   employeeDetail,

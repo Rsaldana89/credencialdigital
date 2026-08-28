@@ -1837,3 +1837,132 @@ tbody tr:hover { background: #fcfbf9; }
     grid-template-columns: 1fr;
   }
 }
+
+/* v1.0.51 - sesion visible y administracion de usuarios */
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 0 0 auto;
+}
+.session-user {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  color: rgba(255,255,255,.92);
+  line-height: 1.15;
+  text-align: right;
+}
+.session-user-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 780;
+  font-size: .82rem;
+}
+.session-user small {
+  margin-top: 3px;
+  color: rgba(255,255,255,.62);
+  font-size: .68rem;
+}
+.logout-form { margin: 0; }
+.logout-button {
+  min-height: 38px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: 9px;
+  background: rgba(255,255,255,.1);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 760;
+  white-space: nowrap;
+}
+.logout-button:hover { background: rgba(255,255,255,.18); }
+
+.user-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, .72fr) minmax(0, 1.55fr);
+  gap: 18px;
+  align-items: start;
+}
+.user-create-card { position: sticky; top: 18px; }
+.user-create-card .button-block { margin-top: 20px; }
+.user-list-card { min-width: 0; }
+.user-list-heading { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.user-list-heading p { margin-bottom: 0; }
+.user-cards { display: grid; gap: 12px; }
+.user-card {
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  overflow: hidden;
+}
+.user-card-inactive { background: #fafafa; opacity: .84; }
+.user-card-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 16px 10px;
+}
+.user-card-summary strong { display: block; color: var(--wine-dark); font-size: 1rem; }
+.user-card-summary .mono { display: block; margin-top: 2px; color: var(--muted); }
+.user-card-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.pill-admin { background: #efe6d5; color: #6a4b12; }
+.user-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0 16px 14px;
+}
+.user-meta div { min-width: 0; }
+.user-meta dt { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; }
+.user-meta dd { margin: 2px 0 0; font-size: .86rem; font-weight: 650; overflow-wrap: anywhere; }
+.user-manage-details { border-top: 1px solid var(--line); }
+.user-manage-details > summary {
+  padding: 11px 16px;
+  color: var(--wine);
+  font-weight: 760;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.user-manage-body { padding: 4px 16px 16px; }
+.user-edit-form { padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.user-edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.user-password-form { padding-top: 14px; }
+.user-password-form h3 { margin: 0 0 4px; font-size: 1rem; }
+.env-bootstrap-note { margin-top: 18px; }
+.env-bootstrap-note p:last-child { margin-bottom: 0; }
+
+@media (max-width: 1040px) {
+  .header-inner { flex-wrap: wrap; }
+  .main-nav { order: 3; width: 100%; justify-content: flex-start; }
+  .session-actions { margin-left: auto; }
+}
+
+@media (max-width: 760px) {
+  .user-admin-grid { grid-template-columns: 1fr; }
+  .user-create-card { position: static; }
+}
+
+@media (max-width: 680px) {
+  .header-inner { gap: 10px; }
+  .session-actions {
+    order: 2;
+    width: 100%;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 10px;
+    background: rgba(255,255,255,.06);
+  }
+  .session-user { text-align: left; }
+  .session-user-name { max-width: 190px; }
+  .main-nav { order: 3; }
+  .user-card-summary { align-items: flex-start; flex-direction: column; }
+  .user-card-badges { justify-content: flex-start; }
+  .user-meta, .user-edit-row { grid-template-columns: 1fr; }
+  .user-manage-body { padding-inline: 12px; }
+}

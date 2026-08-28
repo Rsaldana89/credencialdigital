@@ -1,3 +1,15 @@
+## v1.0.51 - Usuarios en MySQL y cierre de sesión visible
+
+- El cierre de sesión ahora tiene un botón visible y separado de la navegación, especialmente en celular.
+- Se agrega **Admin > Usuarios** para crear usuarios, asignar rol, activar/desactivar accesos y cambiar contraseñas.
+- Las contraseñas se almacenan como hash `scrypt` con salt aleatorio en la nueva tabla `chc_admin_users`.
+- `admin` puede gestionar usuarios; `capital_humano` mantiene acceso operativo a credenciales y eventos sin administrar cuentas.
+- En el primer arranque, si la tabla está vacía, los usuarios existentes de Railway se importan una sola vez desde las variables de entorno para evitar perder acceso.
+- Después del bootstrap, los nuevos usuarios ya no requieren editar variables ni volver a desplegar.
+- La aplicación crea la tabla automáticamente si tiene permisos; también se incluye `database/update_v1.0.51_admin_users.sql` como alternativa manual.
+
+Ver `USUARIOS_v1.0.51_LEEME.md`.
+
 ## v1.0.50 - Tarjetas compactas en móvil
 
 - Compacta la lista de asistentes en celular sin reducir el tamaño de los textos.
@@ -84,11 +96,9 @@ Ver `INTERFAZ_REPORTES_v1.0.48_LEEME.md`.
 
 ## Cambios de la versión 1.0.38
 
-- El inicio de sesión ahora admite el usuario administrativo principal y dos usuarios adicionales de Capital Humano.
-- Los usuarios adicionales se configuran exclusivamente mediante variables de entorno; las contraseñas no se guardan en el código ni en GitHub.
+- Esta versión histórica agregó el usuario administrativo principal y dos usuarios de Capital Humano mediante variables de entorno.
+- Desde v1.0.51 esos accesos se importan a MySQL en el primer arranque y después se administran desde **Admin > Usuarios**.
 - Se registra en la sesión el nombre del usuario que realizó cada carga individual o masiva de fotografías.
-- Los tres usuarios conservan actualmente los mismos permisos dentro del panel administrativo.
-- No se modifican tokens QR, fotografías, tablas ni procedimientos de MySQL.
 
 ## v1.0.35 - textos más legibles y QR ampliado
 
@@ -260,7 +270,7 @@ DB_PASSWORD=
 DB_NAME=sistema_gestion
 
 ADMIN_USER=admin
-ADMIN_PASSWORD=admin123
+ADMIN_PASSWORD=cambiar_contrasena_segura
 
 CAPITAL_HUMANO_1_USER=capitalhumano1
 CAPITAL_HUMANO_1_PASSWORD=colocar_en_railway
@@ -302,7 +312,7 @@ Abre:
 http://localhost:3000/admin/login
 ```
 
-Usa `ADMIN_USER` y `ADMIN_PASSWORD` para la cuenta principal. También puedes configurar `CAPITAL_HUMANO_1_USER`, `CAPITAL_HUMANO_1_PASSWORD`, `CAPITAL_HUMANO_2_USER` y `CAPITAL_HUMANO_2_PASSWORD` para dos cuentas adicionales.
+En una instalación nueva, `ADMIN_USER` / `ADMIN_PASSWORD` y las variables opcionales de Capital Humano se usan únicamente para crear los primeros usuarios cuando `chc_admin_users` está vacía. Después, crea o modifica accesos desde **Admin > Usuarios** sin cambiar Railway.
 
 En un archivo `.env` local, una contraseña que contenga `#` debe escribirse entre comillas, por ejemplo: `CAPITAL_HUMANO_1_PASSWORD="una_clave_con_#"`. En Railway se captura el valor directamente en el campo de la variable.
 
@@ -310,11 +320,7 @@ Todas las rutas administrativas están protegidas mediante sesión. Los formular
 
 ## 6. Generar los QR iniciales
 
-Desde el panel administrativo:
-
-1. Entra a **Panel**.
-2. Presiona **Generar QR faltantes**.
-3. El procedimiento genera un token aleatorio de 64 caracteres para cada empleado activo sin QR.
+Al entrar a **Empleados**, el sistema completa automáticamente los QR faltantes de empleados activos y reactiva el mismo QR en reingresos cuando corresponde. La acción manual **Generar QR faltantes** permanece disponible dentro de **Opciones avanzadas** como respaldo.
 
 También puedes entrar al detalle de un empleado y generar su QR individualmente.
 

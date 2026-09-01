@@ -1838,47 +1838,82 @@ tbody tr:hover { background: #fcfbf9; }
   }
 }
 
-/* v1.0.51 - sesion visible y administracion de usuarios */
+/* v1.0.52 - sesion integrada al encabezado y administracion de usuarios */
 .session-actions {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   flex: 0 0 auto;
+  margin-left: 2px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(255,255,255,.18);
 }
 .session-user {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 10px;
+  color: rgba(255,255,255,.95);
+  background: rgba(255,255,255,.055);
+  line-height: 1.08;
+}
+.session-user-indicator {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #d7b462;
+  box-shadow: 0 0 0 3px rgba(215,180,98,.13);
+}
+.session-user-copy {
+  display: flex;
   flex-direction: column;
   min-width: 0;
-  color: rgba(255,255,255,.92);
-  line-height: 1.15;
-  text-align: right;
 }
 .session-user-name {
-  max-width: 150px;
+  max-width: 152px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 780;
-  font-size: .82rem;
+  font-size: .79rem;
 }
 .session-user small {
   margin-top: 3px;
   color: rgba(255,255,255,.62);
-  font-size: .68rem;
+  font-size: .66rem;
+  font-weight: 600;
 }
 .logout-form { margin: 0; }
 .logout-button {
-  min-height: 38px;
-  padding: 8px 11px;
-  border: 1px solid rgba(255,255,255,.34);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(215,180,98,.72);
   border-radius: 9px;
-  background: rgba(255,255,255,.1);
-  color: #fff;
+  background: rgba(255,255,255,.045);
+  color: rgba(255,255,255,.94);
   cursor: pointer;
-  font-weight: 760;
+  font-size: .79rem;
+  font-weight: 730;
+  line-height: 1;
   white-space: nowrap;
+  transition: background .12s ease, border-color .12s ease, color .12s ease, transform .12s ease;
 }
-.logout-button:hover { background: rgba(255,255,255,.18); }
+.logout-button:hover {
+  background: rgba(255,255,255,.12);
+  border-color: #e6ca89;
+  color: #fff;
+  transform: translateY(-1px);
+}
+.logout-button:focus-visible {
+  outline: 3px solid rgba(232,220,193,.28);
+  outline-offset: 2px;
+}
 
 .user-admin-grid {
   display: grid;
@@ -1953,16 +1988,45 @@ tbody tr:hover { background: #fcfbf9; }
     order: 2;
     width: 100%;
     justify-content: space-between;
-    padding: 8px 10px;
-    border: 1px solid rgba(255,255,255,.16);
+    margin-left: 0;
+    padding: 7px 8px;
+    border: 1px solid rgba(255,255,255,.14);
     border-radius: 10px;
-    background: rgba(255,255,255,.06);
+    background: rgba(255,255,255,.045);
   }
-  .session-user { text-align: left; }
-  .session-user-name { max-width: 190px; }
+  .session-user {
+    padding: 4px 5px;
+    background: transparent;
+  }
+  .session-user-name { max-width: 205px; }
+  .logout-button { min-height: 38px; padding-inline: 13px; }
   .main-nav { order: 3; }
   .user-card-summary { align-items: flex-start; flex-direction: column; }
   .user-card-badges { justify-content: flex-start; }
   .user-meta, .user-edit-row { grid-template-columns: 1fr; }
   .user-manage-body { padding-inline: 12px; }
+}
+
+
+/* v1.0.53 - instalacion PWA desde el login */
+.pwa-install-card {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid var(--gold-light);
+  border-radius: 12px;
+  background: #faf7f1;
+}
+.pwa-install-card[hidden] { display: none !important; }
+.pwa-install-copy {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+.pwa-install-copy strong { color: var(--wine-dark); font-size: .92rem; }
+.pwa-install-copy span { color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.auth-card .pwa-install-button { margin-top: 0; }
+.pwa-install-status { display: block; margin: 9px 0 0; line-height: 1.35; }
+
+@media (max-width: 680px) {
+  .pwa-install-card { padding: 13px; }
 }

@@ -1,13 +1,13 @@
 {
   "name": "credenciales-qr-chc",
-  "version": "1.0.51",
+  "version": "1.0.53",
   "description": "Aplicación web de credenciales digitales QR para Cremería Hermanos Coronel.",
   "main": "server.js",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check controllers/eventController.js && node --check utils/timeZone.js && node --check services/adminAuthService.js && node --check middleware/auth.js && node --check services/employeeService.js && node --check services/tenureService.js && node --check services/eventService.js && node --check services/eventExportService.js && node --check services/zipReader.js && node --check services/bulkPhotoImportService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check routes/eventRoutes.js && node --check public/js/credential.js && node --check public/js/events-new.js && node --check public/js/events-show.js && node --check tests/tenure.test.js",
+    "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check controllers/eventController.js && node --check utils/timeZone.js && node --check services/adminAuthService.js && node --check middleware/auth.js && node --check services/employeeService.js && node --check services/tenureService.js && node --check services/eventService.js && node --check services/eventExportService.js && node --check services/zipReader.js && node --check services/bulkPhotoImportService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check routes/eventRoutes.js && node --check public/js/credential.js && node --check public/js/events-new.js && node --check public/js/events-show.js && node --check tests/tenure.test.js && node --check public/js/pwa.js && node --check public/sw.js",
     "test:tenure": "node tests/tenure.test.js"
   },
   "engines": {

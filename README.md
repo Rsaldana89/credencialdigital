@@ -1,3 +1,25 @@
+## v1.0.53 - PWA instalable desde Chrome
+
+- Agrega `manifest.webmanifest`, iconos corporativos PWA y service worker.
+- Chrome/Android puede instalar **Credenciales Digitales QR CHC** como aplicacion independiente desde el login o desde el menu del navegador.
+- Al abrir la PWA inicia en `/admin`: si hay sesion vigente entra al Panel; si no, redirige al Login.
+- El service worker es **network-only**: no cachea sesiones, eventos, asistencias, premios, QR ni datos de empleados, para no alterar la sincronizacion ni mostrar informacion desactualizada.
+- La camara conserva los mismos permisos y la misma logica de `getUserMedia`; Railway sigue usando HTTPS.
+- No requiere cambios SQL ni variables de entorno nuevas.
+
+Ver `PWA_v1.0.53_LEEME.md`.
+
+## v1.0.52 - Sesión integrada al encabezado
+
+- Rediseña el bloque de usuario y **Cerrar sesión** para que use el mismo estilo vino/dorado de la navegación.
+- El nombre del usuario y su rol se muestran como un bloque compacto, con indicador dorado de sesión activa.
+- El botón deja de verse como un control HTML genérico y adopta borde dorado, fondo translúcido y estados hover/foco consistentes con el sitio.
+- En celular el bloque de sesión permanece visible y ordenado antes de la navegación.
+- Se agrega `?v=1.0.52` al CSS global para forzar al navegador a descargar el estilo nuevo y evitar que una versión anterior quede en caché.
+- No cambia autenticación, permisos, usuarios ni base de datos.
+
+Ver `SESION_ESTILO_v1.0.52_LEEME.md`.
+
 ## v1.0.51 - Usuarios en MySQL y cierre de sesión visible
 
 - El cierre de sesión ahora tiene un botón visible y separado de la navegación, especialmente en celular.

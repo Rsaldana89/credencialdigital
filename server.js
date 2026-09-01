@@ -43,6 +43,23 @@ app.use((req, res, next) => {
 
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(express.json({ limit: '1mb' }));
+
+// Archivos raiz de la PWA. Se sirven sin cache prolongada para que Chrome
+// detecte enseguida cambios de manifest/service worker despues de un deploy.
+app.get('/manifest.webmanifest', (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.type('application/manifest+json');
+  return res.sendFile(path.join(__dirname, 'public', 'manifest.webmanifest'));
+});
+
+app.get('/sw.js', (req, res) => {
+  res.set({
+    'Cache-Control': 'no-cache',
+    'Service-Worker-Allowed': '/'
+  });
+  res.type('application/javascript');
+  return res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
 // jsQR se sirve desde node_modules en el mismo origen para mantener el CSP cerrado
 // y ofrecer lectura QR incluso cuando BarcodeDetector no existe (iPhone, varios Chrome/PC, etc.).
 app.use('/vendor/jsqr', express.static(path.join(__dirname, 'node_modules', 'jsqr', 'dist'), {

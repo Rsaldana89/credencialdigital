@@ -8,15 +8,16 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Credenciales CHC">
-  <link rel="manifest" href="/manifest.webmanifest?v=1.0.53">
-  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=1.0.53">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=1.0.53">
+  <link rel="manifest" href="/manifest.webmanifest?v=1.0.54">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=1.0.54">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=1.0.54">
   <title><%= title %> | CHC</title>
-  <link rel="stylesheet" href="/css/styles.css?v=1.0.53">
-  <script src="/js/pwa.js?v=1.0.53" defer></script>
+  <link rel="stylesheet" href="/css/styles.css?v=1.0.54">
+  <script src="/js/pwa.js?v=1.0.54" defer></script>
   <% if (typeof pageStyles !== 'undefined' && pageStyles) { %>
     <link rel="stylesheet" href="<%= pageStyles %>">
   <% } %>
+  <link rel="stylesheet" href="/css/v1054-enhancements.css?v=1.0.54">
 </head>
 <body class="<%= (typeof hideSiteChrome !== 'undefined' && hideSiteChrome) ? 'credential-standalone-body' : '' %>">
   <% if (!(typeof hideSiteChrome !== 'undefined' && hideSiteChrome)) { %>
@@ -45,7 +46,7 @@
             <span class="session-user-indicator" aria-hidden="true"></span>
             <span class="session-user-copy">
               <span class="session-user-name"><%= adminDisplayName || adminUser %></span>
-              <small><%= adminRole === 'admin' ? 'Administrador' : 'Capital Humano' %></small>
+              <small><%= adminRole === 'admin' ? 'Administrador' : (adminRole === 'event_operator' ? 'Operador de Eventos' : 'Capital Humano') %></small>
             </span>
           </span>
           <form method="post" action="/admin/logout" class="logout-form">
@@ -77,5 +78,6 @@
     </div>
   </footer>
   <% } %>
+  <script src="/js/v1054-enhancements.js?v=1.0.54" defer></script>
 </body>
 </html>

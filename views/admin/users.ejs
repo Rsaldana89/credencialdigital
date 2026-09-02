@@ -51,7 +51,7 @@
               <span class="mono">@<%= user.username %></span>
             </div>
             <div class="user-card-badges">
-              <span class="pill <%= user.role === 'admin' ? 'pill-admin' : 'pill-muted' %>"><%= user.role === 'admin' ? 'Administrador' : 'Capital Humano' %></span>
+              <span class="pill <%= user.role === 'admin' ? 'pill-admin' : 'pill-muted' %>"><%= user.role === 'admin' ? 'Administrador' : (user.role === 'event_operator' ? 'Operador de Eventos' : 'Capital Humano') %></span>
               <span class="pill <%= Number(user.is_active) === 1 ? 'pill-success' : 'pill-danger' %>"><%= Number(user.is_active) === 1 ? 'Activo' : 'Desactivado' %></span>
             </div>
           </div>
@@ -75,6 +75,7 @@
                     <label class="form-label" for="role_<%= user.id %>">Tipo de acceso</label>
                     <select class="form-control" id="role_<%= user.id %>" name="role" <%= Number(adminUserId) === Number(user.id) ? 'disabled' : '' %>>
                       <option value="capital_humano" <%= user.role === 'capital_humano' ? 'selected' : '' %>>Capital Humano</option>
+<option value="event_operator">Operador de Eventos</option>
                       <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Administrador</option>
                     </select>
                     <% if (Number(adminUserId) === Number(user.id)) { %>

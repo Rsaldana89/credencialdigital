@@ -1,4 +1,4 @@
-## v1.0.53 - PWA instalable desde Chrome
+## v1.0.54 - PWA instalable desde Chrome
 
 - Agrega `manifest.webmanifest`, iconos corporativos PWA y service worker.
 - Chrome/Android puede instalar **Credenciales Digitales QR CHC** como aplicacion independiente desde el login o desde el menu del navegador.
@@ -7,7 +7,7 @@
 - La camara conserva los mismos permisos y la misma logica de `getUserMedia`; Railway sigue usando HTTPS.
 - No requiere cambios SQL ni variables de entorno nuevas.
 
-Ver `PWA_v1.0.53_LEEME.md`.
+Ver `PWA_v1.0.54_LEEME.md`.
 
 ## v1.0.52 - Sesión integrada al encabezado
 

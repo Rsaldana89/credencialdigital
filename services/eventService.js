@@ -78,7 +78,7 @@ async function listActiveEmployees(connection = pool) {
        COALESCE(p.full_name, '') AS full_name,
        COALESCE(p.puesto, '') AS puesto,
        COALESCE(p.department_name, '') AS department_name,
-       p.start_date
+       p.start_date AS original_start_date, p.fecha_reingreso AS fecha_reingreso, COALESCE(p.fecha_reingreso, p.start_date) AS start_date, COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date, CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type
      FROM personal p
      WHERE ${ACTIVE_DEPARTMENT_SQL}
        AND p.employee_number IS NOT NULL

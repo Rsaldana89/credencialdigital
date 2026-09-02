@@ -1,4 +1,4 @@
-# v1.0.53 - PWA instalable
+# v1.0.54 - PWA instalable
 
 Esta version agrega instalacion como Progressive Web App (PWA) sin modificar la logica de credenciales, usuarios, eventos, asistencia, premios, camara ni base de datos.
 

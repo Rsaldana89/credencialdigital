@@ -4,7 +4,7 @@ const { pool } = require('../config/db');
 
 const scryptAsync = promisify(crypto.scrypt);
 const PASSWORD_KEY_LENGTH = 64;
-const ALLOWED_ROLES = new Set(['admin', 'capital_humano']);
+const ALLOWED_ROLES = new Set(['admin', 'capital_humano', 'event_operator']);
 let initializationPromise = null;
 
 function normalizeUsername(value) {
@@ -70,7 +70,7 @@ async function ensureAdminUsersTable(connection = pool) {
       username VARCHAR(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
       display_name VARCHAR(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,
       password_hash VARCHAR(255) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-      role ENUM('admin', 'capital_humano') NOT NULL DEFAULT 'capital_humano',
+      role ENUM('admin', 'capital_humano', 'event_operator') NOT NULL DEFAULT 'capital_humano',
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       last_login_at DATETIME NULL,
       created_by VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,

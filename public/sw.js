@@ -1,11 +1,11 @@
-/* Credenciales Digitales QR CHC - Service Worker v1.0.53
+/* Credenciales Digitales QR CHC - Service Worker v1.0.54
  *
  * La PWA sigue siendo una aplicacion conectada: no se cachean paginas de
  * administracion, sesiones, eventos ni respuestas de la base de datos.
  * El fetch se mantiene network-only para que la instalacion como PWA no
  * cambie la logica actual ni muestre informacion desactualizada.
  */
-const SW_VERSION = 'chc-credenciales-pwa-v1.0.53';
+const SW_VERSION = 'chc-credenciales-pwa-v1.0.54';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

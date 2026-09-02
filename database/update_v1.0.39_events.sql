@@ -56,16 +56,9 @@ CREATE TABLE IF NOT EXISTS chc_event_action_logs (
   event_id BIGINT UNSIGNED NOT NULL,
   attendee_id BIGINT UNSIGNED NULL,
   employee_number VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL,
-  action_type ENUM(
-    'CHECK_IN',
-    'RE_SCAN',
-    'AWARD_PREMIO',
-    'AWARD_CONSOLACION',
-    'SCAN_NOT_INVITED',
-    'SCAN_INVALID',
-    'EVENT_CLOSED',
-    'EVENT_REOPENED'
-  ) NOT NULL,
+  -- VARCHAR evita que nuevas acciones operativas (por ejemplo EVENT_RENAMED)
+  -- rompan el registro de auditoria al agregar funciones al modulo de eventos.
+  action_type VARCHAR(40) NOT NULL,
   action_source ENUM('QR', 'MANUAL', 'SCAN', 'SEARCH', 'LIST', 'SYSTEM') NOT NULL DEFAULT 'SYSTEM',
   actor VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

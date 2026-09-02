@@ -196,7 +196,7 @@ function attendeeMatchesTenureGroups(attendee, referenceDate, selectedGroups) {
     ? selectedGroups
     : normalizeTenureGroupSelection(selectedGroups);
   if (!groups.length) return false;
-  const details = calculateTenureDetails(attendee?.start_date_snapshot, referenceDate);
+  const details = calculateTenureDetails(attendee?.effective_start_date || attendee?.start_date_snapshot, referenceDate);
   return groups.includes(details.groupCode);
 }
 

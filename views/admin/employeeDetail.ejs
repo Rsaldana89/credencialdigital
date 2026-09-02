@@ -30,7 +30,7 @@
       <div><dt>NSS</dt><dd><%= employee.nss || 'No disponible' %></dd></div>
       <div><dt>Puesto</dt><dd><%= employee.puesto || 'No disponible' %></dd></div>
       <div><dt>Departamento</dt><dd><%= employee.department_name || 'No disponible' %></dd></div>
-      <div><dt>Fecha de ingreso</dt><dd><%= formatDate(employee.start_date) %></dd></div>
+      <div><dt><%= employee.employment_date_type === 'Reingreso' ? 'Fecha de reingreso' : 'Fecha de ingreso' %></dt><dd><%= formatDate(employee.effective_start_date || employee.start_date) %></dd></div>
       <div><dt>Estatus</dt><dd><%= employeeIsActive ? 'ACTIVO' : 'BAJA' %></dd></div>
     </dl>
   </section>

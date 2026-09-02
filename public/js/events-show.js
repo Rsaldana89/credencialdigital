@@ -22,6 +22,11 @@
   const resultStatus = document.getElementById('event-result-status');
   const prizeButton = document.getElementById('event-result-prize');
   const consolationButton = document.getElementById('event-result-consolation');
+  const credentialLink = document.getElementById('event-result-credential');
+  const awardAlert = document.getElementById('event-award-alert');
+  const awardAlertTitle = document.getElementById('event-award-alert-title');
+  const awardAlertName = document.getElementById('event-award-alert-name');
+  const awardAlertDetail = document.getElementById('event-award-alert-detail');
   const manualInput = document.getElementById('event-manual-search');
   const manualButton = document.getElementById('event-manual-search-button');
   const manualResults = document.getElementById('event-manual-results');
@@ -269,11 +274,35 @@
     if (consolationButton) consolationButton.hidden = true;
   }
 
+  function closeAwardAlert() {
+    if (awardAlert) awardAlert.hidden = true;
+  }
+
+  function showAwardAlreadyDelivered(attendee) {
+    if (!awardAlert || !attendee?.awardType) return;
+    const isPrize = attendee.awardType === 'PREMIO';
+    if (awardAlertTitle) awardAlertTitle.textContent = isPrize ? 'PREMIO YA ENTREGADO' : 'CONSOLACIÓN YA ENTREGADA';
+    if (awardAlertName) awardAlertName.textContent = `${attendee.employeeNumber} · ${attendee.fullName}`;
+    if (awardAlertDetail) {
+      awardAlertDetail.textContent = attendee.awardDeliveredAt
+        ? `Entrega registrada: ${attendee.awardDeliveredAt}`
+        : 'La entrega ya se encuentra registrada en el evento.';
+    }
+    awardAlert.hidden = false;
+    playTone(330, 0, 0.13, 0.16);
+    playTone(245, 0.17, 0.18, 0.18);
+    if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
+  }
+
   function renderScanResult(attendee, message, code) {
     currentResultAttendee = attendee || null;
     if (!resultPanel) return;
     resultPanel.hidden = false;
     hideAwardButtons();
+    if (credentialLink) {
+      credentialLink.hidden = true;
+      credentialLink.removeAttribute('href');
+    }
 
     if (!attendee) {
       const outsideFilter = code === 'OUTSIDE_TENURE_FILTER';
@@ -288,6 +317,10 @@
 
     resultKicker.textContent = code === 'CHECKED_IN' ? 'Asistencia registrada' : 'Empleado identificado';
     resultName.textContent = `${attendee.employeeNumber} · ${attendee.fullName}`;
+    if (credentialLink && attendee.publicCredentialUrl) {
+      credentialLink.href = attendee.publicCredentialUrl;
+      credentialLink.hidden = false;
+    }
     resultMeta.textContent = `${attendee.puesto || 'Sin puesto'} · Antigüedad: ${attendee.tenure} · ${attendee.tenureGroupShortLabel || attendee.tenureGroupLabel || ''}`;
 
     if (attendee.awardType === 'PREMIO') {
@@ -357,6 +390,7 @@
       updateAttendeeRow(payload.attendee);
       setScannerMessage(payload.message || 'Asistencia validada.', 'success');
       playScanFeedback(payload.code, true);
+      if (payload.attendee?.awardType) showAwardAlreadyDelivered(payload.attendee);
       window.setTimeout(syncLiveState, 80);
     } catch (error) {
       const message = error.payload?.message || error.message || 'No fue posible validar el QR.';
@@ -749,7 +783,7 @@
       );
       tenureCell.appendChild(badge);
       tenureCell.appendChild(createElement('strong', 'event-tenure-value', attendee.tenure || 'No disponible'));
-      tenureCell.appendChild(createElement('span', 'table-secondary', `Ingreso: ${attendee.startDate || 'No disponible'}`));
+      tenureCell.appendChild(createElement('span', 'table-secondary', `${attendee.employmentDateType === 'Reingreso' ? 'Reingreso' : 'Ingreso'}: ${attendee.startDate || 'No disponible'}`));
     }
 
     const attendanceCell = row.querySelector('[data-role="attendance"]');
@@ -966,6 +1000,13 @@
       consolation.addEventListener('click', () => performAttendeeAction(attendee, 'award', 'CONSOLACION', 'SEARCH'));
       actions.append(prize, consolation);
     }
+    if (attendee.publicCredentialUrl) {
+      const credential = createElement('a', 'button button-secondary button-small', 'Ver credencial');
+      credential.href = attendee.publicCredentialUrl;
+      credential.target = '_blank';
+      credential.rel = 'noopener noreferrer';
+      actions.appendChild(credential);
+    }
     if (!actions.children.length) {
       actions.appendChild(createElement('span', 'pill pill-muted', attendee.awardType ? 'Entrega cerrada' : attendee.attended ? 'Asistencia registrada' : 'Sin acciones'));
     }
@@ -1032,6 +1073,7 @@
       if (current) {
         updateAttendeeRow(current);
         renderScanResult(current, message, error.payload?.code);
+        if (current.awardType) showAwardAlreadyDelivered(current);
       } else {
         hideAwardButtons();
       }
@@ -1044,6 +1086,10 @@
       if (consolationButton) consolationButton.disabled = false;
     }
   }
+
+  document.querySelectorAll('[data-award-alert-close]').forEach((element) => {
+    element.addEventListener('click', closeAwardAlert);
+  });
 
   restoreTenureFilter();
   refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
@@ -1066,6 +1112,7 @@
     if (event.key === 'Escape' && tenureFilterDetails?.open) {
       tenureFilterDetails.removeAttribute('open');
     }
+    if (event.key === 'Escape' && awardAlert && !awardAlert.hidden) closeAwardAlert();
   });
 
   document.addEventListener('submit', async (event) => {

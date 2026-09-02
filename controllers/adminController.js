@@ -93,7 +93,8 @@ async function login(req, res, next) {
       req.session.adminValidatedAt = Date.now();
       req.session.csrfToken = crypto.randomBytes(32).toString('hex');
       req.session.flash = { type: 'success', message: 'Sesión iniciada correctamente.' };
-      return res.redirect(returnTo);
+      const destination = authenticatedUser.role === 'event_operator' ? '/admin/eventos' : returnTo;
+      return res.redirect(destination);
     });
   } catch (error) {
     return next(error);

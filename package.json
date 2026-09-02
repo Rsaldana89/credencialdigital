@@ -1,6 +1,6 @@
 {
   "name": "credenciales-qr-chc",
-  "version": "1.0.54",
+  "version": "1.0.55",
   "description": "Aplicación web de credenciales digitales QR para Cremería Hermanos Coronel.",
   "main": "server.js",
   "private": true,
@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check controllers/eventController.js && node --check utils/timeZone.js && node --check services/adminAuthService.js && node --check middleware/auth.js && node --check services/employeeService.js && node --check services/tenureService.js && node --check services/eventService.js && node --check services/eventExportService.js && node --check services/zipReader.js && node --check services/bulkPhotoImportService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check routes/eventRoutes.js && node --check public/js/credential.js && node --check public/js/events-new.js && node --check public/js/events-show.js && node --check tests/tenure.test.js && node --check public/js/pwa.js && node --check public/sw.js",
     "test:tenure": "node tests/tenure.test.js",
-    "test:v1054": "node tests/v1054-employment-date.test.js"
+    "test:v1055": "node tests/v1055-regression.test.js",
+    "test": "npm run test:tenure && npm run test:v1055"
   },
   "engines": {
     "node": ">=20.9.0"
@@ -25,9 +26,7 @@
     "multer": "2.2.0",
     "mysql2": "3.22.6",
     "qrcode": "1.5.4",
-    "sharp": "0.35.3",
-    "exceljs": "^4.4.0",
-    "pdfkit": "^0.15.0"
+    "sharp": "0.35.3"
   },
   "devDependencies": {
     "nodemon": "3.1.14"

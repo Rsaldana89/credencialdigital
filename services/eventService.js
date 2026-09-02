@@ -99,23 +99,28 @@ async function insertAttendeeSnapshots(connection, eventId, employees, { ignoreD
 
   for (let index = 0; index < list.length; index += batchSize) {
     const batch = list.slice(index, index + batchSize);
-    const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, NOW())').join(',');
+    const placeholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, NOW())').join(',');
     const params = [];
     batch.forEach((employee) => {
+      const effectiveStart = employee.effective_start_date || employee.start_date || null;
+      const originalStart = employee.original_start_date || employee.start_date || null;
       params.push(
         id,
         String(employee.employee_number).trim(),
         String(employee.full_name || '').trim() || `Empleado ${employee.employee_number}`,
         String(employee.puesto || '').trim() || null,
         String(employee.department_name || '').trim() || null,
-        employee.start_date ? String(employee.start_date).slice(0, 10) : null
+        originalStart ? String(originalStart).slice(0, 10) : null,
+        effectiveStart ? String(effectiveStart).slice(0, 10) : null,
+        String(employee.employment_date_type || (employee.fecha_reingreso ? 'Reingreso' : 'Ingreso')).slice(0, 20)
       );
     });
 
     const [result] = await connection.execute(
       `${insertKeyword} INTO chc_event_attendees
         (event_id, employee_number, full_name_snapshot, puesto_snapshot,
-         department_snapshot, start_date_snapshot, invited_at)
+         department_snapshot, start_date_snapshot, effective_start_date_snapshot,
+         employment_date_type_snapshot, invited_at)
        VALUES ${placeholders}`,
       params
     );
@@ -342,13 +347,43 @@ async function requireEvent(eventId, connection = pool) {
   return event;
 }
 
+function attendeeEmploymentSql() {
+  return `
+    CASE
+      WHEN e.status = 'CLOSED' THEN COALESCE(a.effective_start_date_snapshot, a.start_date_snapshot)
+      ELSE COALESCE(p.fecha_reingreso, p.start_date, a.effective_start_date_snapshot, a.start_date_snapshot)
+    END AS effective_start_date,
+    CASE
+      WHEN e.status = 'CLOSED' THEN COALESCE(a.employment_date_type_snapshot, 'Ingreso')
+      WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso'
+      ELSE 'Ingreso'
+    END AS employment_date_type,
+    t.qr_token AS qr_token`;
+}
+
+function attendeeJoinsSql() {
+  return `
+    INNER JOIN chc_events e ON e.id = a.event_id
+    LEFT JOIN personal p ON p.employee_number = a.employee_number
+    LEFT JOIN employee_qr_tokens t
+      ON t.id = (
+        SELECT t2.id
+        FROM employee_qr_tokens t2
+        WHERE t2.employee_number = a.employee_number
+          AND t2.is_active = 1
+        ORDER BY t2.created_at DESC, t2.id DESC
+        LIMIT 1
+      )`;
+}
+
 async function listEventAttendees(eventId, connection = pool) {
   const id = parsePositiveId(eventId, 'Evento');
   const [rows] = await connection.execute(
-    `SELECT *
-     FROM chc_event_attendees
-     WHERE event_id = ?
-     ORDER BY full_name_snapshot, employee_number`,
+    `SELECT a.*, ${attendeeEmploymentSql()}
+     FROM chc_event_attendees a
+     ${attendeeJoinsSql()}
+     WHERE a.event_id = ?
+     ORDER BY a.full_name_snapshot, a.employee_number`,
     [id]
   );
   return rows;
@@ -404,7 +439,11 @@ async function getAttendeeById(eventId, attendeeId, connection = pool, forUpdate
   const aId = parsePositiveId(attendeeId, 'Asistente');
   const lockSql = forUpdate ? ' FOR UPDATE' : '';
   const [rows] = await connection.execute(
-    `SELECT * FROM chc_event_attendees WHERE id = ? AND event_id = ? LIMIT 1${lockSql}`,
+    `SELECT a.*, ${attendeeEmploymentSql()}
+     FROM chc_event_attendees a
+     ${attendeeJoinsSql()}
+     WHERE a.id = ? AND a.event_id = ?
+     LIMIT 1${lockSql}`,
     [aId, eId]
   );
   return rows[0] || null;
@@ -417,7 +456,11 @@ async function getAttendeeByEmployeeNumber(eventId, employeeNumber, connection =
 
   const lockSql = forUpdate ? ' FOR UPDATE' : '';
   const [rows] = await connection.execute(
-    `SELECT * FROM chc_event_attendees WHERE event_id = ? AND employee_number = ? LIMIT 1${lockSql}`,
+    `SELECT a.*, ${attendeeEmploymentSql()}
+     FROM chc_event_attendees a
+     ${attendeeJoinsSql()}
+     WHERE a.event_id = ? AND a.employee_number = ?
+     LIMIT 1${lockSql}`,
     [eId, normalized]
   );
   if (rows[0]) return rows[0];
@@ -714,9 +757,10 @@ async function getEventLiveChanges(eventId, afterLogId = 0) {
   if (attendeeIds.length) {
     const placeholders = attendeeIds.map(() => '?').join(',');
     const [rows] = await pool.execute(
-      `SELECT *
-       FROM chc_event_attendees
-       WHERE event_id = ? AND id IN (${placeholders})`,
+      `SELECT a.*, ${attendeeEmploymentSql()}
+       FROM chc_event_attendees a
+       ${attendeeJoinsSql()}
+       WHERE a.event_id = ? AND a.id IN (${placeholders})`,
       [id, ...attendeeIds]
     );
     attendees = rows;
@@ -728,6 +772,31 @@ async function getEventLiveChanges(eventId, afterLogId = 0) {
     latestLogId,
     hasMore: logs.length === 500
   };
+}
+
+async function snapshotEmploymentForClosedEvent(event, connection) {
+  const attendees = await listEventAttendees(event.id, connection);
+  const referenceDate = String(event.event_date || '').slice(0, 10);
+  for (const attendee of attendees) {
+    const effectiveStart = attendee.effective_start_date || attendee.start_date_snapshot || null;
+    const details = tenureService.calculateTenureDetails(effectiveStart, referenceDate);
+    await connection.execute(
+      `UPDATE chc_event_attendees
+       SET effective_start_date_snapshot = ?,
+           employment_date_type_snapshot = ?,
+           seniority_group_snapshot = ?,
+           seniority_text_snapshot = ?
+       WHERE id = ? AND event_id = ?`,
+      [
+        effectiveStart ? String(effectiveStart).slice(0, 10) : null,
+        attendee.employment_date_type || 'Ingreso',
+        details.groupCode,
+        details.label,
+        attendee.id,
+        event.id
+      ]
+    );
+  }
 }
 
 async function setEventStatus(eventId, status, actor) {
@@ -747,6 +816,8 @@ async function setEventStatus(eventId, status, actor) {
     }
 
     if (nextStatus === 'CLOSED') {
+      // Congela la fecha efectiva y el rango para que un reingreso futuro no cambie el histórico.
+      await snapshotEmploymentForClosedEvent(event, connection);
       await connection.execute(
         `UPDATE chc_events
          SET status = 'CLOSED', closed_at = NOW(), closed_by = ?, updated_at = NOW()
@@ -771,6 +842,35 @@ async function setEventStatus(eventId, status, actor) {
     const updated = await requireEvent(id, connection);
     await connection.commit();
     return updated;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+async function renameEvent(eventId, eventName, actor) {
+  const id = parsePositiveId(eventId, 'Evento');
+  const name = String(eventName || '').trim().slice(0, 160);
+  if (!name) throw makeUserError('Escribe un nombre para el evento.', 'EVENT_NAME_REQUIRED');
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const event = await requireEvent(id, connection);
+    await connection.execute(
+      `UPDATE chc_events SET event_name = ?, updated_at = NOW() WHERE id = ?`,
+      [name, id]
+    );
+    await logAction(connection, {
+      eventId: id,
+      actionType: 'EVENT_RENAMED',
+      actionSource: 'SYSTEM',
+      actor
+    });
+    await connection.commit();
+    return { ...event, event_name: name };
   } catch (error) {
     await connection.rollback();
     throw error;
@@ -810,6 +910,7 @@ module.exports = {
   getLatestEventLogId,
   getEventLiveChanges,
   setEventStatus,
+  renameEvent,
   logScanFailure,
   formatEmployeeNumber,
   calculateTenure,

@@ -162,6 +162,8 @@ async function generateCredentialPng({
   sloganBuffer,
   qrBuffer,
   formattedStartDate,
+  employmentDateLabel = 'Fecha de Ingreso',
+  credentialTenure = 'No disponible',
   displayEmployeeNumber,
   generatedAt
 }) {
@@ -265,11 +267,11 @@ async function generateCredentialPng({
       ${renderField({
         y: 1102,
         iconType: 'calendar',
-        label: 'Fecha de Ingreso:',
-        value: formattedStartDate,
-        maxChars: 20,
-        maxLines: 1,
-        valueFontSize: 24
+        label: `${employmentDateLabel}:`,
+        value: `${formattedStartDate} Antigüedad: ${credentialTenure}`,
+        maxChars: 24,
+        maxLines: 2,
+        valueFontSize: 20
       })}
       ${renderField({
         y: 1218,

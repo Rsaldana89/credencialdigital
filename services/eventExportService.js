@@ -30,13 +30,15 @@ function formatDate(value) {
 function buildExportRows(event, attendees) {
   const referenceDate = String(event.event_date || '').slice(0, 10);
   return attendees.map((attendee) => {
-    const tenure = eventService.getTenureDetails(attendee.start_date_snapshot, referenceDate);
+    const effectiveStart = attendee.effective_start_date || attendee.start_date_snapshot;
+    const tenure = eventService.getTenureDetails(effectiveStart, referenceDate);
     return {
       employee_number: eventService.formatEmployeeNumber(attendee.employee_number),
       full_name: attendee.full_name_snapshot || '',
       puesto: attendee.puesto_snapshot || '',
       department: attendee.department_snapshot || '',
-      start_date: formatDate(attendee.start_date_snapshot),
+      start_date: formatDate(effectiveStart),
+      employment_date_type: attendee.employment_date_type || 'Ingreso',
       tenure: tenure.label,
       tenure_group: tenure.groupLabel,
       tenure_group_short: tenure.groupShortLabel,
@@ -94,7 +96,8 @@ function buildWorksheetXml(event, exportRows, options = {}) {
     'Nombre',
     'Puesto',
     'Departamento',
-    'Fecha de ingreso',
+    'Fecha de ingreso/reingreso',
+    'Tipo de fecha',
     'Antigüedad',
     'Rango de antigüedad',
     'Asistió',
@@ -106,8 +109,8 @@ function buildWorksheetXml(event, exportRows, options = {}) {
   }
 
   const widths = fiesta
-    ? [18, 38, 28, 26, 16, 20, 22, 12, 20, 14, 12, 22, 20, 22]
-    : [18, 38, 28, 26, 16, 20, 22, 12, 20, 14];
+    ? [18, 38, 28, 26, 20, 15, 20, 22, 12, 20, 14, 12, 22, 20, 22]
+    : [18, 38, 28, 26, 20, 15, 20, 22, 12, 20, 14];
 
   const typeLabel = fiesta ? 'Fiesta con Premios' : 'General';
   const summary = fiesta
@@ -132,6 +135,7 @@ function buildWorksheetXml(event, exportRows, options = {}) {
       row.puesto,
       row.department,
       row.start_date,
+      row.employment_date_type,
       row.tenure,
       row.tenure_group,
       row.attended,

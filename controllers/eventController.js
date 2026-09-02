@@ -64,7 +64,7 @@ function serializeAttendee(event, attendee) {
   const fiesta = event.event_type === 'FIESTA_PREMIOS';
   const isOpen = event.status === 'OPEN';
   const tenure = eventService.getTenureDetails(
-    attendee.start_date_snapshot,
+    attendee.effective_start_date || attendee.start_date_snapshot,
     String(event.event_date || '').slice(0, 10)
   );
   return {
@@ -74,7 +74,9 @@ function serializeAttendee(event, attendee) {
     fullName: attendee.full_name_snapshot || '',
     puesto: attendee.puesto_snapshot || '',
     department: attendee.department_snapshot || '',
-    startDate: formatDate(attendee.start_date_snapshot),
+    startDate: formatDate(attendee.effective_start_date || attendee.start_date_snapshot),
+    employmentDateType: attendee.employment_date_type || 'Ingreso',
+    publicCredentialUrl: attendee.qr_token ? `/e/${encodeURIComponent(attendee.qr_token)}` : null,
     tenure: tenure.label,
     tenureYears: tenure.years,
     tenureMonths: tenure.months,
@@ -120,12 +122,23 @@ function extractTokenFromQrValue(rawValue) {
 
 async function index(req, res, next) {
   try {
-    const events = await eventService.listEvents();
+    const allEvents = await eventService.listEvents();
+    const requested = String(req.query.estado || 'OPEN').trim().toUpperCase();
+    const statusFilter = ['OPEN', 'CLOSED', 'ALL'].includes(requested) ? requested : 'OPEN';
+    const events = statusFilter === 'ALL'
+      ? allEvents
+      : allEvents.filter((event) => event.status === statusFilter);
     return res.render('admin/events/index', {
       title: 'Asistencia a eventos',
       events,
+      statusFilter,
+      eventCounts: {
+        open: allEvents.filter((event) => event.status === 'OPEN').length,
+        closed: allEvents.filter((event) => event.status === 'CLOSED').length,
+        all: allEvents.length
+      },
       formatDateTime,
-      pageStyles: '/css/events.css?v=1.0.50'
+      pageStyles: '/css/events.css?v=1.0.55'
     });
   } catch (error) {
     return next(error);
@@ -142,7 +155,7 @@ async function newForm(req, res, next) {
       formValues: {},
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       formatDate,
-      pageStyles: '/css/events.css?v=1.0.50'
+      pageStyles: '/css/events.css?v=1.0.55'
     });
   } catch (error) {
     return next(error);
@@ -174,7 +187,7 @@ async function create(req, res, next) {
           formValues: req.body || {},
           formatEmployeeNumber: eventService.formatEmployeeNumber,
           formatDate,
-          pageStyles: '/css/events.css?v=1.0.50'
+          pageStyles: '/css/events.css?v=1.0.55'
         });
       } catch (renderError) {
         return next(renderError);
@@ -199,7 +212,7 @@ async function show(req, res, next) {
     const referenceDate = String(event.event_date || '').slice(0, 10);
     const groupCounts = new Map(eventService.TENURE_GROUPS.map((group) => [group.code, 0]));
     attendees.forEach((attendee) => {
-      const details = eventService.getTenureDetails(attendee.start_date_snapshot, referenceDate);
+      const details = eventService.getTenureDetails(attendee.effective_start_date || attendee.start_date_snapshot, referenceDate);
       groupCounts.set(details.groupCode, Number(groupCounts.get(details.groupCode) || 0) + 1);
     });
     const tenureGroups = eventService.TENURE_GROUPS
@@ -218,7 +231,7 @@ async function show(req, res, next) {
       formatEmployeeNumber: eventService.formatEmployeeNumber,
       calculateTenure: eventService.calculateTenure,
       getTenureDetails: eventService.getTenureDetails,
-      pageStyles: '/css/events.css?v=1.0.50'
+      pageStyles: '/css/events.css?v=1.0.55'
     });
   } catch (error) {
     return next(error);
@@ -494,6 +507,24 @@ async function addInvitees(req, res, next) {
   }
 }
 
+async function rename(req, res, next) {
+  try {
+    const event = await eventService.renameEvent(
+      req.params.eventId,
+      req.body.event_name,
+      currentActor(req)
+    );
+    setFlash(req, 'success', `Evento renombrado como "${event.event_name}".`);
+    return res.redirect(`/admin/eventos/${event.id}`);
+  } catch (error) {
+    if (error.status && error.status < 500) {
+      setFlash(req, 'danger', error.message);
+      return res.redirect(`/admin/eventos/${encodeURIComponent(req.params.eventId)}`);
+    }
+    return next(error);
+  }
+}
+
 async function setStatus(req, res, next) {
   try {
     const event = await eventService.setEventStatus(
@@ -569,6 +600,7 @@ module.exports = {
   refreshInvitees,
   addInvitees,
   setStatus,
+  rename,
   exportXlsx,
   exportPdf,
   extractTokenFromQrValue,

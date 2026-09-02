@@ -1,0 +1,10 @@
+VALIDACION v1.0.55
+==================
+
+npm run check: OK
+npm run test: OK
+Pruebas de antigüedad: OK
+Caso reingreso 22/04/2025 -> evento 20/08/2026: 1 año 3 meses, grupo LT5: OK
+Regresiones SQL de v1.0.54: verificadas y corregidas
+
+Migracion adicional v1.0.55: NO REQUERIDA si v1.0.54 ya fue aplicada.

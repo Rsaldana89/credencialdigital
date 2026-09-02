@@ -10,8 +10,6 @@ const publicRoutes = require('./routes/publicRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const adminAuthService = require('./services/adminAuthService');
-const v1054RoleGate = require("./middleware/v1054-role-gate.js");
-const v1054EnhancementsRouter = require("./routes/v1054-enhancements.js");
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -111,10 +109,6 @@ app.get('/health', async (req, res) => {
 });
 
 app.use('/', publicRoutes);
-
-// v1.0.54: permisos, histórico, reingresos y reportes de eventos
-app.use(v1054RoleGate);
-app.use(v1054EnhancementsRouter);
 app.use('/admin/eventos', eventRoutes);
 app.use('/admin', adminRoutes);
 

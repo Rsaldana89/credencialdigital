@@ -3,6 +3,8 @@ const path = require('path');
 const employeeService = require('../services/employeeService');
 const qrService = require('../services/qrService');
 const credentialImageService = require('../services/credentialImageService');
+const tenureService = require('../services/tenureService');
+const { getCurrentDateInEventZone } = require('../utils/timeZone');
 
 function formatDate(value) {
   if (!value) return 'No disponible';
@@ -67,6 +69,8 @@ async function credential(req, res, next) {
 
     const generatedAt = formatDateTime();
     const qrDataUrl = await qrService.generateDataUrl(resolution.token);
+    const effectiveStartDate = resolution.employee.effective_start_date || resolution.employee.start_date;
+    const credentialTenure = tenureService.calculateTenureDetails(effectiveStartDate, getCurrentDateInEventZone()).label;
 
     return res.render('credential', {
       title: `Credencial de ${resolution.employee.full_name || 'empleado'}`,
@@ -74,7 +78,9 @@ async function credential(req, res, next) {
       token: resolution.token,
       qrDataUrl,
       generatedAt,
-      formattedStartDate: formatDate(resolution.employee.start_date),
+      formattedStartDate: formatDate(resolution.employee.effective_start_date || resolution.employee.start_date),
+      employmentDateLabel: resolution.employee.employment_date_type === 'Reingreso' ? 'Fecha de Reingreso' : 'Fecha de Ingreso',
+      credentialTenure,
       displayEmployeeNumber: employeeService.formatEmployeeNumber(resolution.employee.employee_number),
       pageStyles: '/css/credential-v30.css',
       hideSiteChrome: true
@@ -129,13 +135,17 @@ async function downloadCredentialPng(req, res, next) {
 
     const generatedAt = formatDateTime();
     const displayEmployeeNumber = employeeService.formatEmployeeNumber(employee.employee_number);
+    const effectiveStartDate = employee.effective_start_date || employee.start_date;
+    const credentialTenure = tenureService.calculateTenureDetails(effectiveStartDate, getCurrentDateInEventZone()).label;
     const imageBuffer = await credentialImageService.generateCredentialPng({
       employee,
       photoBuffer: storedPhoto?.photo_blob || placeholderBuffer,
       logoBuffer,
       sloganBuffer,
       qrBuffer,
-      formattedStartDate: formatDate(employee.start_date),
+      formattedStartDate: formatDate(employee.effective_start_date || employee.start_date),
+      employmentDateLabel: employee.employment_date_type === 'Reingreso' ? 'Fecha de Reingreso' : 'Fecha de Ingreso',
+      credentialTenure,
       displayEmployeeNumber,
       generatedAt
     });

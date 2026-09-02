@@ -1,3 +1,7 @@
+# Hotfix v1.0.55
+
+Corrige la regresión SQL de v1.0.54 que podía provocar error 500 en el Panel y aplica correctamente `personal.fecha_reingreso` a credenciales y antigüedad de eventos. Si la migración v1.0.54 ya fue ejecutada, esta versión no requiere SQL adicional. Consulta `HOTFIX_v1.0.55_LEEME.md`.
+
 ## v1.0.54 - PWA instalable desde Chrome
 
 - Agrega `manifest.webmanifest`, iconos corporativos PWA y service worker.

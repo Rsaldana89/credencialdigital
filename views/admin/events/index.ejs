@@ -1,17 +1,27 @@
 <section class="page-heading event-heading">
   <div>
-    <p class="eyebrow">Administración</p>
+    <p class="eyebrow"><%= adminRole === 'event_operator' ? 'Operación' : 'Administración' %></p>
     <h1>Asistencia a eventos</h1>
     <p class="muted">Cada evento conserva su propia lista de invitados, asistencia y entrega de premios.</p>
   </div>
-  <a class="button button-primary" href="/admin/eventos/nuevo">Crear evento</a>
+  <% if (adminRole !== 'event_operator') { %>
+    <a class="button button-primary" href="/admin/eventos/nuevo">Crear evento</a>
+  <% } %>
 </section>
+
+<nav class="event-history-tabs" aria-label="Filtrar eventos por estado">
+  <a class="button button-small <%= statusFilter === 'OPEN' ? 'button-primary' : 'button-secondary' %>" href="/admin/eventos?estado=OPEN">Abiertos (<%= eventCounts.open %>)</a>
+  <a class="button button-small <%= statusFilter === 'CLOSED' ? 'button-primary' : 'button-secondary' %>" href="/admin/eventos?estado=CLOSED">Cerrados (<%= eventCounts.closed %>)</a>
+  <a class="button button-small <%= statusFilter === 'ALL' ? 'button-primary' : 'button-secondary' %>" href="/admin/eventos?estado=ALL">Todos (<%= eventCounts.all %>)</a>
+</nav>
 
 <% if (!events.length) { %>
   <section class="event-empty panel-card">
-    <h2>Aún no hay eventos</h2>
-    <p class="muted">Crea el primer evento. Por default se invitará a todos los empleados activos.</p>
-    <a class="button button-primary" href="/admin/eventos/nuevo">Crear primer evento</a>
+    <h2>No hay eventos en esta vista</h2>
+    <p class="muted"><%= statusFilter === 'CLOSED' ? 'Todavía no hay eventos cerrados.' : 'No se encontraron eventos con este filtro.' %></p>
+    <% if (adminRole !== 'event_operator' && statusFilter !== 'CLOSED') { %>
+      <a class="button button-primary" href="/admin/eventos/nuevo">Crear evento</a>
+    <% } %>
   </section>
 <% } else { %>
   <section class="event-list-grid">
@@ -38,7 +48,7 @@
             <div><strong><%= event.consolation_count || 0 %></strong><span>Consolación</span></div>
           <% } %>
         </div>
-        <a class="button button-primary button-block" href="/admin/eventos/<%= event.id %>">Abrir evento</a>
+        <a class="button button-primary button-block" href="/admin/eventos/<%= event.id %>"><%= event.status === 'OPEN' ? 'Abrir evento' : 'Consultar histórico' %></a>
       </article>
     <% }) %>
   </section>

@@ -8,16 +8,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Credenciales CHC">
-  <link rel="manifest" href="/manifest.webmanifest?v=1.0.54">
-  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=1.0.54">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=1.0.54">
+  <link rel="manifest" href="/manifest.webmanifest?v=1.0.55">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png?v=1.0.55">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=1.0.55">
   <title><%= title %> | CHC</title>
-  <link rel="stylesheet" href="/css/styles.css?v=1.0.54">
-  <script src="/js/pwa.js?v=1.0.54" defer></script>
+  <link rel="stylesheet" href="/css/styles.css?v=1.0.55">
+  <script src="/js/pwa.js?v=1.0.55" defer></script>
   <% if (typeof pageStyles !== 'undefined' && pageStyles) { %>
     <link rel="stylesheet" href="<%= pageStyles %>">
   <% } %>
-  <link rel="stylesheet" href="/css/v1054-enhancements.css?v=1.0.54">
 </head>
 <body class="<%= (typeof hideSiteChrome !== 'undefined' && hideSiteChrome) ? 'credential-standalone-body' : '' %>">
   <% if (!(typeof hideSiteChrome !== 'undefined' && hideSiteChrome)) { %>
@@ -29,12 +28,16 @@
       </a>
       <nav class="main-nav" aria-label="Navegación principal">
         <% if (isAuthenticated) { %>
-          <a class="nav-link <%= currentPath === '/admin' ? 'active' : '' %>" href="/admin">Panel</a>
-          <a class="nav-link <%= currentPath.startsWith('/admin/empleados') ? 'active' : '' %>" href="/admin/empleados">Empleados</a>
-          <a class="nav-link <%= currentPath.startsWith('/admin/eventos') ? 'active' : '' %>" href="/admin/eventos">Eventos</a>
-          <a class="nav-link <%= currentPath.startsWith('/admin/fotografias') ? 'active' : '' %>" href="/admin/fotografias/importar">Fotografías</a>
-          <% if (adminRole === 'admin') { %>
-            <a class="nav-link <%= currentPath.startsWith('/admin/usuarios') ? 'active' : '' %>" href="/admin/usuarios">Usuarios</a>
+          <% if (adminRole === 'event_operator') { %>
+            <a class="nav-link <%= currentPath.startsWith('/admin/eventos') ? 'active' : '' %>" href="/admin/eventos">Eventos</a>
+          <% } else { %>
+            <a class="nav-link <%= currentPath === '/admin' ? 'active' : '' %>" href="/admin">Panel</a>
+            <a class="nav-link <%= currentPath.startsWith('/admin/empleados') ? 'active' : '' %>" href="/admin/empleados">Empleados</a>
+            <a class="nav-link <%= currentPath.startsWith('/admin/eventos') ? 'active' : '' %>" href="/admin/eventos">Eventos</a>
+            <a class="nav-link <%= currentPath.startsWith('/admin/fotografias') ? 'active' : '' %>" href="/admin/fotografias/importar">Fotografías</a>
+            <% if (adminRole === 'admin') { %>
+              <a class="nav-link <%= currentPath.startsWith('/admin/usuarios') ? 'active' : '' %>" href="/admin/usuarios">Usuarios</a>
+            <% } %>
           <% } %>
         <% } else { %>
           <a class="nav-link" href="/admin/login">Administración</a>
@@ -78,6 +81,5 @@
     </div>
   </footer>
   <% } %>
-  <script src="/js/v1054-enhancements.js?v=1.0.54" defer></script>
 </body>
 </html>

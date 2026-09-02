@@ -61,6 +61,16 @@ router.post('/logout', verifyCsrfToken, adminController.logout);
 
 router.use(requireAdmin);
 
+router.use((req, res, next) => {
+  if (String(req.session?.adminRole || '').toLowerCase() !== 'event_operator') return next();
+  if (req.path === '/' || req.path === '') return res.redirect('/admin/eventos');
+  return res.status(403).render('invalid', {
+    title: 'Acceso restringido',
+    heading: 'Acceso restringido',
+    message: 'El perfil Operador de Eventos solo puede consultar y operar eventos.'
+  });
+});
+
 router.get('/', adminController.dashboard);
 router.get('/usuarios', requireRole('admin'), adminController.users);
 router.post('/usuarios', requireRole('admin'), verifyCsrfToken, adminController.createUser);

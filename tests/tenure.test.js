@@ -8,6 +8,14 @@ function expectTenure(startDate, eventDate, expected) {
   assert.equal(actual.months, expected.months, `${startDate} al ${eventDate}: meses`);
 }
 
+
+// Caso real de reingreso validado en la demo: la antigüedad debe partir del reingreso.
+expectTenure('2025-04-22', '2026-08-20', {
+  groupCode: 'LT5',
+  years: 1,
+  months: 3
+});
+
 // El día anterior al aniversario todavía conserva el rango anterior.
 expectTenure('2021-10-10', '2026-10-09', {
   groupCode: 'LT5',
@@ -91,4 +99,4 @@ assert.equal(
   false
 );
 
-console.log('Pruebas de antigüedad v1.0.50: OK');
+console.log('Pruebas de antigüedad v1.0.55: OK');

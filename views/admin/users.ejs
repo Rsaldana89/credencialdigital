@@ -23,9 +23,10 @@
       <label class="form-label" for="role">Tipo de acceso</label>
       <select class="form-control" id="role" name="role" required>
         <option value="capital_humano">Capital Humano</option>
+        <option value="event_operator">Operador de Eventos</option>
         <option value="admin">Administrador</option>
       </select>
-      <p class="help-text">Capital Humano puede usar credenciales y eventos. Solo Administrador puede gestionar usuarios.</p>
+      <p class="help-text">Capital Humano administra credenciales y eventos. Operador de Eventos solo registra asistencias y premios. Solo Administrador gestiona usuarios.</p>
 
       <label class="form-label" for="password">Contraseña inicial</label>
       <input class="form-control" id="password" name="password" type="password" minlength="8" maxlength="200" required autocomplete="new-password">
@@ -75,7 +76,7 @@
                     <label class="form-label" for="role_<%= user.id %>">Tipo de acceso</label>
                     <select class="form-control" id="role_<%= user.id %>" name="role" <%= Number(adminUserId) === Number(user.id) ? 'disabled' : '' %>>
                       <option value="capital_humano" <%= user.role === 'capital_humano' ? 'selected' : '' %>>Capital Humano</option>
-<option value="event_operator">Operador de Eventos</option>
+<option value="event_operator" <%= user.role === 'event_operator' ? 'selected' : '' %>>Operador de Eventos</option>
                       <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Administrador</option>
                     </select>
                     <% if (Number(adminUserId) === Number(user.id)) { %>

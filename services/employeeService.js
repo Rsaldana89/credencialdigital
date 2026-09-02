@@ -154,9 +154,12 @@ async function resolvePublicToken(rawToken) {
        p.nss,
        p.puesto,
        p.department_name,
-       p.start_date,
-       p.fecha_baja,
+       p.start_date AS original_start_date,
        p.fecha_reingreso,
+       COALESCE(p.fecha_reingreso, p.start_date) AS start_date,
+       COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date,
+       CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type,
+       p.fecha_baja,
        EXISTS(
          SELECT 1 FROM employee_photos ep
          WHERE ep.employee_number = t.employee_number
@@ -273,7 +276,11 @@ async function listActiveEmployees(search = '') {
        p.full_name,
        p.puesto,
        p.department_name,
-       p.start_date AS original_start_date, p.fecha_reingreso AS fecha_reingreso, COALESCE(p.fecha_reingreso, p.start_date) AS start_date, COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date, CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type,
+       p.start_date AS original_start_date,
+       p.fecha_reingreso,
+       COALESCE(p.fecha_reingreso, p.start_date) AS start_date,
+       COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date,
+       CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type,
        EXISTS(
          SELECT 1 FROM employee_qr_tokens t
          WHERE t.employee_number = p.employee_number
@@ -298,7 +305,7 @@ async function listActiveEmployees(search = '') {
 
 async function listActiveEmployeesWithQr() {
   const [rows] = await pool.query(
-    `SELECT p.start_date AS original_start_date, p.fecha_reingreso AS fecha_reingreso, COALESCE(p.fecha_reingreso, p.start_date) AS start_date, COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date, CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type,  DISTINCT
+    `SELECT DISTINCT
        p.employee_number AS employee_number,
        t.id AS qr_id,
        t.qr_token
@@ -334,9 +341,12 @@ async function getEmployeeByNumber(rawEmployeeNumber) {
        p.nss,
        p.puesto,
        p.department_name,
-       p.start_date,
-       p.fecha_baja,
+       p.start_date AS original_start_date,
        p.fecha_reingreso,
+       COALESCE(p.fecha_reingreso, p.start_date) AS start_date,
+       COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date,
+       CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type,
+       p.fecha_baja,
        EXISTS(
          SELECT 1 FROM employee_photos ep
          WHERE ep.employee_number = p.employee_number
@@ -519,7 +529,7 @@ async function generateMissingTokens() {
     const [generated] = await connection.query(
       `INSERT INTO employee_qr_tokens
         (employee_number, qr_token, is_active, created_at)
-       SELECT p.start_date AS original_start_date, p.fecha_reingreso AS fecha_reingreso, COALESCE(p.fecha_reingreso, p.start_date) AS start_date, COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date, CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type, 
+       SELECT
          active_employees.employee_number,
          LOWER(HEX(RANDOM_BYTES(32))),
          1,
@@ -566,7 +576,7 @@ async function deactivateQrForInactiveEmployees() {
 
 async function getDashboardStats() {
   const [rows] = await pool.query(`
-    SELECT p.start_date AS original_start_date, p.fecha_reingreso AS fecha_reingreso, COALESCE(p.fecha_reingreso, p.start_date) AS start_date, COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date, CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type, 
+    SELECT
       (
         SELECT COUNT(*)
         FROM personal p
@@ -590,7 +600,7 @@ async function getDashboardStats() {
 
 async function listEmployeesForPhotoImport() {
   const [rows] = await pool.query(
-    `SELECT p.start_date AS original_start_date, p.fecha_reingreso AS fecha_reingreso, COALESCE(p.fecha_reingreso, p.start_date) AS start_date, COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date, CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type, 
+    `SELECT
        p.employee_number AS employee_number,
        p.full_name,
        p.department_name,

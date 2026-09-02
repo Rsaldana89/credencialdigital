@@ -11,6 +11,18 @@ function getEventTimeZone() {
   }
 }
 
+
+function getCurrentDateInEventZone(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: getEventTimeZone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function mysqlUtcDateTimeToDate(value) {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -53,6 +65,7 @@ function formatUtcDateTimeInEventZone(value, emptyValue = 'No registrado') {
 module.exports = {
   DEFAULT_TIME_ZONE,
   getEventTimeZone,
+  getCurrentDateInEventZone,
   mysqlUtcDateTimeToDate,
   formatUtcDateTimeInEventZone
 };

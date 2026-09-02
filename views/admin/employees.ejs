@@ -61,7 +61,7 @@
         <tr>
           <th>Empleado</th>
           <th>Puesto / Departamento</th>
-          <th>Ingreso</th>
+          <th>Ingreso / reingreso</th>
           <th>QR</th>
           <th>Foto</th>
           <th>Acciones</th>
@@ -81,7 +81,7 @@
               <%= employee.puesto || 'Sin puesto' %>
               <span class="table-secondary"><%= employee.department_name || 'Sin departamento' %></span>
             </td>
-            <td><%= formatDate(employee.start_date) %></td>
+            <td><%= formatDate(employee.effective_start_date || employee.start_date) %><span class="table-secondary"><%= employee.employment_date_type || 'Ingreso' %></span></td>
             <td><span class="pill <%= employee.has_qr ? 'pill-success' : 'pill-muted' %>"><%= employee.has_qr ? 'Generado' : 'Pendiente' %></span></td>
             <td><span class="pill <%= employee.has_photo ? 'pill-success' : 'pill-muted' %>"><%= employee.has_photo ? 'Cargada' : 'Sin foto' %></span></td>
             <td>

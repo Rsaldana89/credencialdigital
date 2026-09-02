@@ -75,10 +75,12 @@
         <span id="event-tenure-active-counts">Mostrando <%= attendees.length %> invitados · <%= attendees.filter((item) => item.attended_at).length %> con asistencia</span>
       </div>
 
-      <div class="event-filter-export-actions">
-        <a class="button button-secondary button-small" id="event-export-filtered-xlsx" href="/admin/eventos/<%= event.id %>/exportar.xlsx?scope=filtered&amp;antiguedad=<%= tenureGroups.map((group) => group.code).join(',') %>">Excel del filtro</a>
-        <a class="button button-secondary button-small" id="event-export-filtered-pdf" href="/admin/eventos/<%= event.id %>/exportar.pdf?scope=filtered&amp;antiguedad=<%= tenureGroups.map((group) => group.code).join(',') %>">PDF del filtro</a>
-      </div>
+      <% if (adminRole !== 'event_operator') { %>
+        <div class="event-filter-export-actions">
+          <a class="button button-secondary button-small" id="event-export-filtered-xlsx" href="/admin/eventos/<%= event.id %>/exportar.xlsx?scope=filtered&amp;antiguedad=<%= tenureGroups.map((group) => group.code).join(',') %>">Excel del filtro</a>
+          <a class="button button-secondary button-small" id="event-export-filtered-pdf" href="/admin/eventos/<%= event.id %>/exportar.pdf?scope=filtered&amp;antiguedad=<%= tenureGroups.map((group) => group.code).join(',') %>">PDF del filtro</a>
+        </div>
+      <% } %>
     </div>
 
     <div class="event-scanner-shortcuts" id="event-scanner-shortcuts">
@@ -124,6 +126,7 @@
           <span id="event-result-status"></span>
         </div>
         <div class="event-result-actions" id="event-result-actions">
+          <a class="button button-secondary" id="event-result-credential" href="#" target="_blank" rel="noopener noreferrer" hidden>Ver credencial</a>
           <% if (event.event_type === 'FIESTA_PREMIOS') { %>
             <button class="button button-primary" type="button" id="event-result-prize" hidden>Marcar Premio</button>
             <button class="button button-secondary" type="button" id="event-result-consolation" hidden>Marcar Consolación</button>
@@ -136,20 +139,35 @@
   <div class="event-page-content">
     <div class="event-page-topbar">
       <a class="back-link" href="/admin/eventos">← Volver a eventos</a>
-      <div class="page-actions">
-        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Excel completo</a>
-        <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">PDF completo</a>
-        <form method="post" action="/admin/eventos/<%= event.id %>/estado">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <input type="hidden" name="status" value="<%= event.status === 'OPEN' ? 'CLOSED' : 'OPEN' %>">
-          <button class="button <%= event.status === 'OPEN' ? 'button-danger' : 'button-primary' %>" type="submit">
-            <%= event.status === 'OPEN' ? 'Cerrar evento' : 'Reabrir evento' %>
-          </button>
-        </form>
-      </div>
+      <% if (adminRole !== 'event_operator') { %>
+        <div class="page-actions">
+          <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.xlsx">Excel completo</a>
+          <a class="button button-secondary" href="/admin/eventos/<%= event.id %>/exportar.pdf">PDF completo</a>
+          <form method="post" action="/admin/eventos/<%= event.id %>/estado">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="status" value="<%= event.status === 'OPEN' ? 'CLOSED' : 'OPEN' %>">
+            <button class="button <%= event.status === 'OPEN' ? 'button-danger' : 'button-primary' %>" type="submit">
+              <%= event.status === 'OPEN' ? 'Cerrar evento' : 'Reabrir evento' %>
+            </button>
+          </form>
+        </div>
+      <% } %>
     </div>
 
-    <details class="panel-card event-invite-management">
+    <% if (adminRole !== 'event_operator') { %>
+      <details class="panel-card event-rename-panel">
+        <summary class="event-invite-management__summary">
+          <span><strong>Renombrar evento</strong><small>El nombre cambia sin afectar invitados, asistencias ni premios.</small></span>
+          <span class="event-invite-management__chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <form method="post" action="/admin/eventos/<%= event.id %>/renombrar" class="event-rename-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input class="form-control" type="text" name="event_name" maxlength="160" value="<%= event.event_name %>" required>
+          <button class="button button-primary" type="submit">Guardar nombre</button>
+        </form>
+      </details>
+
+      <details class="panel-card event-invite-management">
       <summary class="event-invite-management__summary">
         <span>
           <strong>Gestionar invitados</strong>
@@ -185,7 +203,8 @@
         <% } %>
         <p class="event-invite-management__note">Los nuevos invitados conservan una fotografía de nombre, puesto, departamento y fecha de ingreso al momento de agregarlos. Si falta su QR, también se revisa su generación automática.</p>
       </div>
-    </details>
+      </details>
+    <% } %>
 
     <section class="event-live-stats">
       <article><strong id="event-stat-invited"><%= event.invited_count || 0 %></strong><span>Total invitados</span></article>
@@ -231,7 +250,7 @@
           </thead>
           <tbody>
             <% attendees.forEach((attendee) => { %>
-              <% const tenure = getTenureDetails(attendee.start_date_snapshot, String(event.event_date).slice(0, 10)); %>
+              <% const tenure = getTenureDetails(attendee.effective_start_date || attendee.start_date_snapshot, String(event.event_date).slice(0, 10)); %>
               <tr
                 data-attendee-id="<%= attendee.id %>"
                 data-tenure-group="<%= tenure.groupCode %>"
@@ -246,7 +265,7 @@
                 <td data-label="Antigüedad" data-role="tenure">
                   <span class="event-tenure-badge event-tenure-badge--<%= tenure.groupCssClass %>"><%= tenure.groupBadgeLabel %></span>
                   <strong class="event-tenure-value"><%= tenure.label %></strong>
-                  <span class="table-secondary">Ingreso: <%= formatDate(attendee.start_date_snapshot) %></span>
+                  <span class="table-secondary"><%= attendee.employment_date_type === 'Reingreso' ? 'Reingreso' : 'Ingreso' %>: <%= formatDate(attendee.effective_start_date || attendee.start_date_snapshot) %></span>
                 </td>
                 <td data-label="Asistencia" data-role="attendance">
                   <% if (attendee.attended_at) { %>
@@ -302,5 +321,17 @@
   </div>
 </section>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.50" defer></script>
-<script src="/js/events-show.js?v=1.0.50" defer></script>
+
+<div class="event-award-alert" id="event-award-alert" hidden role="dialog" aria-modal="true" aria-labelledby="event-award-alert-title">
+  <div class="event-award-alert__backdrop" data-award-alert-close></div>
+  <div class="event-award-alert__card">
+    <span class="event-award-alert__icon" aria-hidden="true">🎁</span>
+    <h2 id="event-award-alert-title">PREMIO YA ENTREGADO</h2>
+    <strong id="event-award-alert-name"></strong>
+    <p id="event-award-alert-detail"></p>
+    <button class="button button-primary" type="button" data-award-alert-close>Entendido</button>
+  </div>
+</div>
+
+<script src="/vendor/jsqr/jsQR.js?v=1.0.55" defer></script>
+<script src="/js/events-show.js?v=1.0.55" defer></script>

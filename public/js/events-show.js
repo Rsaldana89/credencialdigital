@@ -16,6 +16,7 @@
   const stopButton = document.getElementById('event-stop-camera');
   const scannerMessage = document.getElementById('event-scanner-message');
   const resultPanel = document.getElementById('event-scan-result');
+  const resultDismissButton = document.getElementById('event-result-dismiss');
   const resultKicker = document.getElementById('event-result-kicker');
   const resultName = document.getElementById('event-result-name');
   const resultMeta = document.getElementById('event-result-meta');
@@ -294,11 +295,31 @@
     if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
   }
 
+  function setScanResultTone(state) {
+    if (!resultPanel) return;
+    resultPanel.classList.remove(
+      'event-scan-result--success',
+      'event-scan-result--already',
+      'event-scan-result--warning',
+      'event-scan-result--danger',
+      'event-scan-result--award'
+    );
+    if (state) resultPanel.classList.add(`event-scan-result--${state}`);
+  }
+
+  function dismissScanResult() {
+    if (!resultPanel) return;
+    resultPanel.hidden = true;
+    currentResultAttendee = null;
+    hideAwardButtons();
+  }
+
   function renderScanResult(attendee, message, code) {
     currentResultAttendee = attendee || null;
     if (!resultPanel) return;
     resultPanel.hidden = false;
     hideAwardButtons();
+    setScanResultTone('');
     if (credentialLink) {
       credentialLink.hidden = true;
       credentialLink.removeAttribute('href');
@@ -306,7 +327,8 @@
 
     if (!attendee) {
       const outsideFilter = code === 'OUTSIDE_TENURE_FILTER';
-      resultKicker.textContent = outsideFilter ? 'Fuera del filtro' : 'No registrado';
+      setScanResultTone(outsideFilter ? 'warning' : 'danger');
+      resultKicker.textContent = outsideFilter ? 'FUERA DEL FILTRO' : 'NO REGISTRADO';
       resultName.textContent = outsideFilter
         ? 'No se encontró en la lista de antigüedad seleccionada'
         : 'No se pudo validar al empleado';
@@ -315,7 +337,6 @@
       return;
     }
 
-    resultKicker.textContent = code === 'CHECKED_IN' ? 'Asistencia registrada' : 'Empleado identificado';
     resultName.textContent = `${attendee.employeeNumber} · ${attendee.fullName}`;
     if (credentialLink && attendee.publicCredentialUrl) {
       credentialLink.href = attendee.publicCredentialUrl;
@@ -323,18 +344,42 @@
     }
     resultMeta.textContent = `${attendee.puesto || 'Sin puesto'} · Antigüedad: ${attendee.tenure} · ${attendee.tenureGroupShortLabel || attendee.tenureGroupLabel || ''}`;
 
+    if (code === 'AWARD_DELIVERED') {
+      setScanResultTone('award');
+      resultKicker.textContent = attendee.awardType === 'CONSOLACION'
+        ? '✓ CONSOLACIÓN REGISTRADA'
+        : '✓ PREMIO REGISTRADO';
+    } else if (attendee.awardType) {
+      setScanResultTone('warning');
+      resultKicker.textContent = attendee.awardType === 'PREMIO'
+        ? '⚠ PREMIO YA ENTREGADO'
+        : '⚠ CONSOLACIÓN YA ENTREGADA';
+    } else if (code === 'CHECKED_IN') {
+      setScanResultTone('success');
+      resultKicker.textContent = '✓ ASISTENCIA REGISTRADA';
+    } else if (code === 'ALREADY_ATTENDED' || attendee.attended) {
+      setScanResultTone('already');
+      resultKicker.textContent = '✓ ASISTENCIA YA REGISTRADA';
+    } else {
+      setScanResultTone('warning');
+      resultKicker.textContent = 'EMPLEADO IDENTIFICADO';
+    }
+
     if (attendee.awardType === 'PREMIO') {
-      resultStatus.textContent = `Asistió. Premio entregado${attendee.awardDeliveredAt ? ` · ${attendee.awardDeliveredAt}` : ''}.`;
+      resultStatus.textContent = `Asistencia confirmada. Premio ya entregado${attendee.awardDeliveredAt ? ` · ${attendee.awardDeliveredAt}` : ''}.`;
     } else if (attendee.awardType === 'CONSOLACION') {
-      resultStatus.textContent = `Asistió. Premio de consolación entregado${attendee.awardDeliveredAt ? ` · ${attendee.awardDeliveredAt}` : ''}.`;
+      resultStatus.textContent = `Asistencia confirmada. Consolación ya entregada${attendee.awardDeliveredAt ? ` · ${attendee.awardDeliveredAt}` : ''}.`;
     } else if (attendee.attended) {
-      resultStatus.textContent = message || `Asistencia: ${attendee.attendedAt || 'registrada'}.`;
+      const attendanceDetail = attendee.attendedAt ? ` a las ${attendee.attendedAt}` : '';
+      resultStatus.textContent = code === 'CHECKED_IN'
+        ? `La asistencia quedó registrada${attendanceDetail}.`
+        : `La asistencia ya estaba registrada${attendanceDetail}.`;
     } else {
       resultStatus.textContent = message || 'Sin asistencia registrada.';
     }
 
     if (isFiesta && attendee.canAward) {
-      resultStatus.textContent = `${resultStatus.textContent} Selecciona ahora el tipo de premio si corresponde.`;
+      resultStatus.textContent = `${resultStatus.textContent} Puedes marcar Premio o Consolación ahora; no necesitas volver a escanear.`;
       if (prizeButton) prizeButton.hidden = false;
       if (consolationButton) consolationButton.hidden = false;
     }
@@ -375,7 +420,11 @@
     if (!normalizedValue) return;
 
     const now = Date.now();
-    if (normalizedValue === lastQrValue && now - lastQrAt < 2800) return;
+    // Mantiene el mismo QR en pausa unos segundos para que el operador pueda
+    // confirmar asistencia y marcar Premio/Consolación sin que el mismo código
+    // vuelva a dispararse mientras sigue dentro del encuadre. Un QR diferente
+    // continúa procesándose de inmediato.
+    if (normalizedValue === lastQrValue && now - lastQrAt < 7000) return;
     lastQrValue = normalizedValue;
     lastQrAt = now;
     requestBusy = true;
@@ -946,7 +995,7 @@
       }
       setScannerMessage(payload.message || 'Cambio registrado.', 'success');
       updateAttendeeRow(payload.attendee);
-      if (currentResultAttendee?.id === payload.attendee?.id) {
+      if (payload.attendee) {
         renderScanResult(payload.attendee, payload.message, payload.code);
       }
       await runManualSearch(false);
@@ -1091,6 +1140,8 @@
     element.addEventListener('click', closeAwardAlert);
   });
 
+  resultDismissButton?.addEventListener('click', dismissScanResult);
+
   restoreTenureFilter();
   refreshTenureFilterView({ clearResultWhenOutside: false, rerunSearch: false });
 
@@ -1112,7 +1163,11 @@
     if (event.key === 'Escape' && tenureFilterDetails?.open) {
       tenureFilterDetails.removeAttribute('open');
     }
-    if (event.key === 'Escape' && awardAlert && !awardAlert.hidden) closeAwardAlert();
+    if (event.key === 'Escape' && awardAlert && !awardAlert.hidden) {
+      closeAwardAlert();
+    } else if (event.key === 'Escape' && resultPanel && !resultPanel.hidden) {
+      dismissScanResult();
+    }
   });
 
   document.addEventListener('submit', async (event) => {

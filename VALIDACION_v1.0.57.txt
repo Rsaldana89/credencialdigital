@@ -1,0 +1,22 @@
+Credenciales Digitales QR CHC - Validación v1.0.57
+
+Objetivo:
+Mejorar la operación móvil posterior al escaneo sin reducir el visor de cámara.
+
+Validaciones ejecutadas:
+- npm run check: OK
+- npm test: OK
+- Pruebas de antigüedad/reingreso heredadas: OK
+- Regresión v1.0.55: OK
+- Regresión v1.0.56: OK
+- Regresión específica v1.0.57: OK
+
+Comportamiento esperado en celular:
+1. Al escanear un QR, el resultado aparece como hoja inferior visible.
+2. Se muestra ASISTENCIA REGISTRADA o ASISTENCIA YA REGISTRADA de forma destacada.
+3. En Fiesta con Premios aparecen Premio y Consolación inmediatamente cuando correspondan.
+4. No es necesario volver a escanear para entregar el premio.
+5. El resultado puede cerrarse con X.
+6. El mismo QR tiene una pausa de 7 segundos; otro QR diferente se procesa inmediatamente.
+7. Se conserva el modal de PREMIO YA ENTREGADO / CONSOLACIÓN YA ENTREGADA.
+8. No hay cambios SQL en esta versión.

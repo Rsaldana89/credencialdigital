@@ -118,7 +118,8 @@
         </div>
       </div>
 
-      <div class="event-scan-result" id="event-scan-result" hidden>
+      <div class="event-scan-result" id="event-scan-result" hidden role="status" aria-live="polite">
+        <button class="event-scan-result__dismiss" type="button" id="event-result-dismiss" aria-label="Ocultar resultado del último escaneo">×</button>
         <div class="event-scan-result__main">
           <span class="event-result-kicker" id="event-result-kicker">Resultado</span>
           <strong id="event-result-name"></strong>
@@ -333,5 +334,5 @@
   </div>
 </div>
 
-<script src="/vendor/jsqr/jsQR.js?v=1.0.55" defer></script>
-<script src="/js/events-show.js?v=1.0.55" defer></script>
+<script src="/vendor/jsqr/jsQR.js?v=1.0.57" defer></script>
+<script src="/js/events-show.js?v=1.0.57" defer></script>

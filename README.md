@@ -1,3 +1,5 @@
+# Credenciales Digitales QR CHC - v1.0.57
+
 ## Hotfix v1.0.56
 
 Corrige el registro de auditoria al renombrar eventos. Ejecutar `database/update_v1.0.56_event_action_type.sql` en bases ya existentes.

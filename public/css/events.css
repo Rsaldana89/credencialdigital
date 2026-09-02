@@ -1109,3 +1109,187 @@
     padding: 1.35rem 1rem;
   }
 }
+
+/* v1.0.57 - Resultado de escaneo operativo y premios siempre visibles */
+.event-scan-result {
+  position: relative;
+  border-width: 2px;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+.event-scan-result--success,
+.event-scan-result--already {
+  border-color: #9bcbb0;
+  background: #f1faf5;
+}
+
+.event-scan-result--award {
+  border-color: #d5ad54;
+  background: #fff9eb;
+}
+
+.event-scan-result--warning {
+  border-color: #d5ad54;
+  background: #fff9eb;
+}
+
+.event-scan-result--danger {
+  border-color: #d9a3aa;
+  background: #fff2f3;
+}
+
+.event-scan-result__dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #d8d1cc;
+  border-radius: 999px;
+  background: rgba(255,255,255,.94);
+  color: #5d6065;
+  font: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.event-scan-result__dismiss:hover { background: #fff; color: #6d1725; }
+.event-scan-result__main { padding-right: 34px; }
+
+.event-result-kicker {
+  width: max-content;
+  max-width: 100%;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #ece8e5;
+  color: #4c111c;
+  font-size: .76rem;
+  letter-spacing: .055em;
+}
+
+.event-scan-result--success .event-result-kicker,
+.event-scan-result--already .event-result-kicker {
+  background: #dff2e7;
+  color: #145637;
+}
+
+.event-scan-result--award .event-result-kicker,
+.event-scan-result--warning .event-result-kicker {
+  background: #f7e8bd;
+  color: #6c5016;
+}
+
+.event-scan-result--danger .event-result-kicker {
+  background: #f5dfe2;
+  color: #7e1e29;
+}
+
+.event-scan-result__main strong {
+  margin-top: 7px;
+  padding-right: 4px;
+  font-size: 1.05rem;
+}
+
+#event-result-status {
+  margin-top: 7px;
+  color: #2f3337;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  /* En celular, el resultado se presenta como una hoja inferior operativa.
+     Así la confirmación y los botones de premio quedan visibles sin reducir
+     el tamaño del visor de cámara. */
+  .event-scan-result:not([hidden]) {
+    position: fixed;
+    z-index: 1150;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 9px;
+    max-height: min(48vh, 390px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0;
+    padding: 12px;
+    border-radius: 16px;
+    box-shadow: 0 20px 55px rgba(28, 18, 20, .3);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .event-scan-result__main {
+    padding-right: 34px;
+  }
+
+  .event-result-kicker {
+    font-size: .78rem;
+    padding: 6px 9px;
+  }
+
+  .event-scan-result__main strong {
+    margin-top: 6px;
+    font-size: .98rem;
+    line-height: 1.3;
+  }
+
+  .event-scan-result__main span:not(.event-result-kicker) {
+    font-size: .79rem;
+    line-height: 1.35;
+  }
+
+  #event-result-status {
+    margin-top: 6px;
+    color: #24282c;
+    font-size: .86rem;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+
+  .event-result-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .event-result-actions .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding: 9px 8px;
+    font-size: .86rem;
+    font-weight: 850;
+  }
+
+  .event-result-actions #event-result-credential {
+    grid-column: 1 / -1;
+    min-height: 40px;
+  }
+
+  .event-scan-result__dismiss {
+    top: 9px;
+    right: 9px;
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 430px) {
+  .event-scan-result:not([hidden]) {
+    left: max(7px, env(safe-area-inset-left));
+    right: max(7px, env(safe-area-inset-right));
+    bottom: max(7px, env(safe-area-inset-bottom));
+    max-height: min(52vh, 410px);
+    padding: 11px;
+  }
+
+  .event-result-actions .button { font-size: .82rem; }
+}

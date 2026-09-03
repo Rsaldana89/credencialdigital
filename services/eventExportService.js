@@ -3,8 +3,16 @@ const archiver = require('archiver');
 const eventService = require('./eventService');
 const { formatUtcDateTimeInEventZone } = require('../utils/timeZone');
 
-function xmlEscape(value) {
+function sanitizeXmlText(value) {
   return String(value ?? '')
+    // XML 1.0 no permite estos caracteres de control. Si alguno llega desde
+    // MySQL (por copiado/pegado o datos heredados), Excel considera corrupta
+    // la hoja completa. Los sustituimos por espacio antes de escapar XML.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, ' ');
+}
+
+function xmlEscape(value) {
+  return sanitizeXmlText(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -154,12 +162,13 @@ function buildWorksheetXml(event, exportRows, options = {}) {
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <dimension ref="A1:${lastColumn}${lastRow}"/>
   <sheetViews><sheetView workbookViewId="0"><pane ySplit="7" topLeftCell="A8" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
   <sheetFormatPr defaultRowHeight="18"/>
   <cols>${cols}</cols>
   <sheetData>${rows.join('')}</sheetData>
-  <mergeCells count="5">${mergeRefs}</mergeCells>
   <autoFilter ref="A7:${lastColumn}${lastRow}"/>
+  <mergeCells count="5">${mergeRefs}</mergeCells>
 </worksheet>`;
 }
 

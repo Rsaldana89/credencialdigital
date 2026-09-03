@@ -581,3 +581,9 @@ Las variables opcionales están documentadas en `.env.example`.
 ### Base de datos y QR
 
 Esta versión no requiere cambios adicionales en la base de datos y no modifica `employee_qr_tokens`. La importación masiva sólo consulta `personal` y escribe en `employee_photos`.
+
+
+## v1.0.58 - Hotfix Excel
+- Corrige el orden OOXML de `autoFilter` y `mergeCells` para evitar que Microsoft Excel repare `sheet1.xml`.
+- Sanitiza caracteres de control no permitidos por XML 1.0 antes de escribir datos del personal en el XLSX.
+- No requiere cambios de base de datos.

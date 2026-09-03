@@ -1,0 +1,26 @@
+VALIDACION v1.0.58 - EXPORTACION XLSX
+
+Resultado: OK
+
+Diagnostico del error observado en Microsoft Excel:
+- Excel reportaba /xl/worksheets/sheet1.xml, linea 8, columna 0.
+- En la plantilla v1.0.57, la linea 8 correspondia a <autoFilter>.
+- El generador escribia <mergeCells> antes de <autoFilter>, orden contrario al esquema OOXML de worksheet.
+- Tanto Excel completo como Excel del filtro usan el mismo generador, por eso ambos podian presentar el mismo problema.
+
+Correcciones:
+1. autoFilter se escribe antes de mergeCells.
+2. Se agrega dimension de hoja.
+3. Se sanitizan caracteres de control no permitidos en XML 1.0 antes de escribir datos de MySQL.
+4. No se modifica la logica de filtros, asistencia, premios, PDF ni base de datos.
+
+Comprobaciones ejecutadas:
+- node --check services/eventExportService.js: OK
+- node --check tests/v1058-xlsx-structure.test.js: OK
+- test v1.0.58 de estructura OOXML: OK
+- pruebas de antiguedad: OK
+- regresiones v1.0.55: OK
+- regresiones v1.0.56: OK
+- regresion de resultado movil v1.0.57: OK
+
+SQL requerido: NO.

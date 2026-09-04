@@ -1,0 +1,18 @@
+VALIDACION v1.0.62 - PARIDAD VISUAL CREDENCIAL
+
+Resultado: OK
+
+Validaciones realizadas:
+- npm run check: OK
+- npm test: OK
+- Regresiones v1.0.55 a v1.0.61: OK
+- Nueva prueba v1.0.62 de geometria equivalente a credential-v30.css: OK
+- Iconos PNG: 74 px (mismo max-width de navegador)
+- Valor dinamico: equivalente a 2.17cqw
+- Etiqueta: equivalente a 2.38cqw
+- Antiguedad: equivalente a 1.52cqw
+- Foto: un solo crop cover con object-position equivalente a 50% 38%
+- Fecha y antiguedad en lineas independientes
+- QR conserva las proporciones del panel web
+- Descarga masiva usa el mismo generateCredentialPng
+- No requiere SQL

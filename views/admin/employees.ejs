@@ -6,6 +6,10 @@
   </div>
   <div class="page-actions">
     <a class="button button-secondary" href="/admin/fotografias/importar">Importar fotografías</a>
+    <form method="post" action="/admin/empleados/descargar-credenciales">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-secondary" type="submit">Descargar paquete de credenciales</button>
+    </form>
     <form method="post" action="/admin/empleados/descargar-qrs">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button class="button button-primary" type="submit">Descargar paquete QR</button>

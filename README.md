@@ -587,3 +587,9 @@ Esta versión no requiere cambios adicionales en la base de datos y no modifica 
 - Corrige el orden OOXML de `autoFilter` y `mergeCells` para evitar que Microsoft Excel repare `sheet1.xml`.
 - Sanitiza caracteres de control no permitidos por XML 1.0 antes de escribir datos del personal en el XLSX.
 - No requiere cambios de base de datos.
+
+## v1.0.61
+
+- Credenciales PNG con texto vectorial portátil, sin depender de fuentes de Railway.
+- Nuevo paquete ZIP de credenciales para empleados activos desde Administración > Empleados.
+- No requiere migración SQL.

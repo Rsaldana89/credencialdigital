@@ -336,6 +336,42 @@ async function listActiveEmployeesWithQr() {
   return rows;
 }
 
+async function listActiveEmployeesForCredentialPackage() {
+  const [rows] = await pool.query(
+    `SELECT DISTINCT
+       p.employee_number AS employee_number,
+       p.full_name,
+       p.nss,
+       p.puesto,
+       p.department_name,
+       p.start_date AS original_start_date,
+       p.fecha_reingreso,
+       COALESCE(p.fecha_reingreso, p.start_date) AS start_date,
+       COALESCE(p.fecha_reingreso, p.start_date) AS effective_start_date,
+       CASE WHEN p.fecha_reingreso IS NOT NULL THEN 'Reingreso' ELSE 'Ingreso' END AS employment_date_type,
+       t.id AS qr_id,
+       t.qr_token
+     FROM personal p
+     INNER JOIN employee_qr_tokens t
+       ON t.employee_number = p.employee_number
+      AND t.is_active = 1
+      AND t.id = (
+        SELECT t2.id
+        FROM employee_qr_tokens t2
+        WHERE t2.employee_number = p.employee_number
+          AND t2.is_active = 1
+        ORDER BY t2.created_at DESC, t2.id DESC
+        LIMIT 1
+      )
+     WHERE ${ACTIVE_DEPARTMENT_SQL}
+       AND p.employee_number IS NOT NULL
+       AND CHAR_LENGTH(TRIM(p.employee_number)) > 0
+     ORDER BY p.employee_number`
+  );
+
+  return rows;
+}
+
 async function getEmployeeByNumber(rawEmployeeNumber) {
   const employeeNumber = normalizeEmployeeNumber(rawEmployeeNumber);
   if (!employeeNumber) return null;
@@ -655,6 +691,7 @@ module.exports = {
   getPhotoByEmployeeNumber,
   listActiveEmployees,
   listActiveEmployeesWithQr,
+  listActiveEmployeesForCredentialPackage,
   listEmployeesForPhotoImport,
   getEmployeeByNumber,
   getActiveQrByEmployee,

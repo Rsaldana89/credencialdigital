@@ -7,7 +7,9 @@ const photoService = require('../services/photoService');
 const qrService = require('../services/qrService');
 const bulkPhotoImportService = require('../services/bulkPhotoImportService');
 const adminAuthService = require('../services/adminAuthService');
-const { formatUtcDateTimeInEventZone } = require('../utils/timeZone');
+const credentialImageService = require('../services/credentialImageService');
+const tenureService = require('../services/tenureService');
+const { formatUtcDateTimeInEventZone, getCurrentDateInEventZone } = require('../utils/timeZone');
 
 function formatDate(value) {
   if (!value) return 'No disponible';
@@ -59,6 +61,53 @@ async function buildQrFiles(employees, batchSize = 20) {
   }
 
   return files;
+}
+
+let credentialAssetsPromise = null;
+
+function getCredentialAssets() {
+  if (!credentialAssetsPromise) {
+    credentialAssetsPromise = Promise.all([
+      fs.readFile(path.join(__dirname, '..', 'public', 'img', 'logo-corporativo-v30.png')),
+      fs.readFile(path.join(__dirname, '..', 'public', 'img', 'frase-corporativa-v30.png')),
+      fs.readFile(path.join(__dirname, '..', 'public', 'img', 'photo-placeholder.png'))
+    ]).then(([logoBuffer, sloganBuffer, placeholderBuffer]) => ({
+      logoBuffer,
+      sloganBuffer,
+      placeholderBuffer
+    }));
+  }
+  return credentialAssetsPromise;
+}
+
+async function buildCredentialFile(employee, assets) {
+  const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
+  if (!employeeNumber || !employee.qr_token) return null;
+
+  const storedPhoto = await employeeService.getPhotoByEmployeeNumber(employee.employee_number);
+  const qrBuffer = await qrService.generatePngBuffer(employee.qr_token);
+  const effectiveStartDate = employee.effective_start_date || employee.start_date;
+  const credentialTenure = tenureService.calculateTenureDetails(
+    effectiveStartDate,
+    getCurrentDateInEventZone()
+  ).label;
+  const displayEmployeeNumber = employeeService.formatEmployeeNumber(employee.employee_number);
+  const buffer = await credentialImageService.generateCredentialPng({
+    employee,
+    photoBuffer: storedPhoto?.photo_blob || assets.placeholderBuffer,
+    logoBuffer: assets.logoBuffer,
+    sloganBuffer: assets.sloganBuffer,
+    qrBuffer,
+    formattedStartDate: formatDate(effectiveStartDate),
+    employmentDateLabel: employee.employment_date_type === 'Reingreso' ? 'Fecha de Reingreso' : 'Fecha de Ingreso',
+    credentialTenure,
+    displayEmployeeNumber
+  });
+
+  return {
+    buffer,
+    filename: `${displayEmployeeNumber || employeeNumber}_CREDENCIAL_QR.png`
+  };
 }
 
 function loginForm(req, res) {
@@ -495,6 +544,84 @@ async function downloadQrPackage(req, res, next) {
   }
 }
 
+
+async function downloadCredentialPackage(req, res, next) {
+  try {
+    await employeeService.generateMissingTokens();
+    const employees = await employeeService.listActiveEmployeesForCredentialPackage();
+
+    if (!employees.length) {
+      setFlash(req, 'danger', 'No hay credenciales activas disponibles para descargar.');
+      return res.redirect('/admin/empleados');
+    }
+
+    const assets = await getCredentialAssets();
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const packageFilename = `CREDENCIALES_EMPLEADOS_ACTIVOS_${dateStamp}.zip`;
+    // Los PNG ya vienen comprimidos; almacenarlos sin recomprimir reduce carga de CPU.
+    const archive = archiver('zip', { store: true });
+    const failures = [];
+    let generatedCount = 0;
+
+    archive.on('warning', (error) => {
+      if (error.code !== 'ENOENT') console.error('Advertencia al preparar el paquete de credenciales:', error);
+    });
+    archive.on('error', (error) => {
+      if (!res.destroyed) res.destroy(error);
+    });
+
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${packageFilename}"`,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff'
+    });
+    archive.pipe(res);
+
+    // Generación por lotes pequeños: mantiene bajo el uso de memoria y permite
+    // que la descarga empiece mientras se siguen creando las credenciales.
+    const batchSize = 4;
+    for (let index = 0; index < employees.length; index += batchSize) {
+      const batch = employees.slice(index, index + batchSize);
+      const generated = await Promise.all(batch.map(async (employee) => {
+        try {
+          return await buildCredentialFile(employee, assets);
+        } catch (error) {
+          failures.push(`${employee.employee_number || 'SIN_NUMERO'}: ${error.message || 'Error desconocido'}`);
+          return null;
+        }
+      }));
+
+      for (const file of generated.filter(Boolean)) {
+        archive.append(file.buffer, { name: file.filename });
+        generatedCount += 1;
+      }
+    }
+
+    archive.append(Buffer.from(
+      `Paquete de credenciales digitales de empleados activos.\r\n` +
+      `Generado: ${new Date().toLocaleString('es-MX')}\r\n` +
+      `Credenciales generadas: ${generatedCount}\r\n` +
+      `Formato de nombre: NUMERO_EMPLEADO_CREDENCIAL_QR.png\r\n` +
+      (failures.length ? `\r\nNo fue posible generar ${failures.length} archivo(s). Consulta ERRORES.txt.\r\n` : ''),
+      'utf8'
+    ), { name: 'LEEME.txt' });
+
+    if (failures.length) {
+      archive.append(Buffer.from(failures.join('\r\n'), 'utf8'), { name: 'ERRORES.txt' });
+    }
+
+    await archive.finalize();
+    return undefined;
+  } catch (error) {
+    if (res.headersSent) {
+      if (!res.destroyed) res.destroy(error);
+      return undefined;
+    }
+    return next(error);
+  }
+}
+
 module.exports = {
   loginForm,
   login,
@@ -515,5 +642,6 @@ module.exports = {
   generateQr,
   deactivateInactive,
   downloadQr,
-  downloadQrPackage
+  downloadQrPackage,
+  downloadCredentialPackage
 };

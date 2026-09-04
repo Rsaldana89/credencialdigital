@@ -1,4 +1,5 @@
 const sharp = require('sharp');
+const { renderPortableText } = require('./portableText');
 
 const CARD_WIDTH = 1001;
 const CARD_HEIGHT = 1570;
@@ -55,14 +56,15 @@ function renderLines(lines, {
   fontSize,
   lineHeight,
   fill = '#781321',
-  weight = 800,
   anchor = 'start'
 }) {
-  return lines.map((line, index) => (
-    `<text x="${x}" y="${y + (index * lineHeight)}" text-anchor="${anchor}" ` +
-    `font-family="DejaVu Sans, Liberation Sans, sans-serif" font-size="${fontSize}" font-weight="${weight}" fill="${fill}">` +
-    `${escapeXml(line)}</text>`
-  )).join('');
+  return lines.map((line, index) => renderPortableText(line, {
+    x,
+    y: y + (index * lineHeight),
+    fontSize,
+    fill,
+    anchor
+  })).join('');
 }
 
 function iconContent(type) {
@@ -129,7 +131,7 @@ function renderField({
   return `
     ${renderIcon(iconType, 48, y + 8, 82)}
     <line x1="165" y1="${y + 9}" x2="165" y2="${y + 80}" stroke="#e19b05" stroke-width="3"/>
-    <text x="188" y="${y + 26}" font-family="DejaVu Sans, Liberation Sans, sans-serif" font-size="25" font-weight="700" fill="#16171a">${escapeXml(label)}</text>
+    ${renderPortableText(label, { x: 188, y: y + 26, fontSize: 25, fill: '#16171a' })}
     ${renderLines(valueLines, {
       x: 188,
       y: y + 58,
@@ -286,7 +288,7 @@ async function generateCredentialPng({
       <rect x="626" y="878" width="315" height="430" rx="24" fill="#ffffff" stroke="#711723" stroke-width="5"/>
       <image href="data:image/png;base64,${data.qr}" x="648" y="915" width="272" height="272" preserveAspectRatio="xMidYMid meet"/>
       <path d="M626 1220 H941 V1284 Q941 1308 917 1308 H650 Q626 1308 626 1284 Z" fill="url(#wineGrad)"/>
-      <text x="783.5" y="1269" text-anchor="middle" font-family="DejaVu Sans, Liberation Sans, sans-serif" font-size="27" font-weight="800" fill="#ffffff">QR ASOCIADO</text>
+      ${renderPortableText('QR ASOCIADO', { x: 783.5, y: 1269, fontSize: 27, fill: '#ffffff', anchor: 'middle' })}
 
       <rect x="10" y="1390" width="981" height="170" fill="url(#wineGrad)"/>
       <rect x="10" y="1388" width="981" height="8" fill="url(#goldGrad)"/>

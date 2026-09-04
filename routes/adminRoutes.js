@@ -79,6 +79,7 @@ router.post('/usuarios/:id/contrasena', requireRole('admin'), verifyCsrfToken, a
 
 router.get('/empleados', adminController.employees);
 router.post('/empleados/descargar-qrs', verifyCsrfToken, adminController.downloadQrPackage);
+router.post('/empleados/descargar-credenciales', verifyCsrfToken, adminController.downloadCredentialPackage);
 
 router.get('/fotografias/importar', adminController.bulkPhotoImportForm);
 router.post(

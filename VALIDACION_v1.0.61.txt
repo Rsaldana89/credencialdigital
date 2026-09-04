@@ -1,0 +1,19 @@
+VALIDACION v1.0.61
+==================
+
+- npm run check: OK
+- Prueba de renderer vectorial portátil: OK
+  - MARTÍNEZ
+  - MARÍA
+  - Ñ
+  - 03296
+  - ANTIGÜEDAD
+- La generación de texto no contiene etiquetas SVG <text>: OK
+- La descarga individual ya no depende de Canvas para repintar texto: OK
+- Ruta POST /admin/empleados/descargar-credenciales: OK
+- Botón "Descargar paquete de credenciales": OK
+- Servicio listActiveEmployeesForCredentialPackage: OK
+- Generación ZIP en lotes pequeños: OK
+- Sin cambios SQL: OK
+
+Nota: el renderer de texto usa trazos vectoriales embebidos en código y no depende de fuentes instaladas en el sistema operativo de Railway.

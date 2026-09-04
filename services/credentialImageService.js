@@ -2,8 +2,7 @@ const sharp = require('sharp');
 
 const CARD_WIDTH = 1001;
 const CARD_HEIGHT = 1570;
-const META_HEIGHT = 140;
-const TOTAL_HEIGHT = CARD_HEIGHT + META_HEIGHT;
+const TOTAL_HEIGHT = CARD_HEIGHT;
 
 function escapeXml(value) {
   return String(value ?? '')
@@ -61,7 +60,7 @@ function renderLines(lines, {
 }) {
   return lines.map((line, index) => (
     `<text x="${x}" y="${y + (index * lineHeight)}" text-anchor="${anchor}" ` +
-    `font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" font-weight="${weight}" fill="${fill}">` +
+    `font-family="DejaVu Sans, Liberation Sans, sans-serif" font-size="${fontSize}" font-weight="${weight}" fill="${fill}">` +
     `${escapeXml(line)}</text>`
   )).join('');
 }
@@ -123,14 +122,14 @@ function renderField({
   value,
   maxChars = 27,
   maxLines = 2,
-  valueFontSize = 23
+  valueFontSize = 28
 }) {
   const valueLines = wrapText(value, maxChars, maxLines);
 
   return `
     ${renderIcon(iconType, 48, y + 8, 82)}
     <line x1="165" y1="${y + 9}" x2="165" y2="${y + 80}" stroke="#e19b05" stroke-width="3"/>
-    <text x="188" y="${y + 26}" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="650" fill="#16171a">${escapeXml(label)}</text>
+    <text x="188" y="${y + 26}" font-family="DejaVu Sans, Liberation Sans, sans-serif" font-size="25" font-weight="700" fill="#16171a">${escapeXml(label)}</text>
     ${renderLines(valueLines, {
       x: 188,
       y: y + 58,
@@ -244,7 +243,7 @@ async function generateCredentialPng({
         value: employee.full_name,
         maxChars: 28,
         maxLines: 2,
-        valueFontSize: 23
+        valueFontSize: 30
       })}
       ${renderField({
         y: 870,
@@ -253,7 +252,7 @@ async function generateCredentialPng({
         value: displayEmployeeNumber || employee.employee_number,
         maxChars: 20,
         maxLines: 1,
-        valueFontSize: 24
+        valueFontSize: 31
       })}
       ${renderField({
         y: 986,
@@ -262,7 +261,7 @@ async function generateCredentialPng({
         value: employee.puesto,
         maxChars: 28,
         maxLines: 2,
-        valueFontSize: 23
+        valueFontSize: 28
       })}
       ${renderField({
         y: 1102,
@@ -271,7 +270,7 @@ async function generateCredentialPng({
         value: `${formattedStartDate} Antigüedad: ${credentialTenure}`,
         maxChars: 24,
         maxLines: 2,
-        valueFontSize: 20
+        valueFontSize: 25
       })}
       ${renderField({
         y: 1218,
@@ -280,24 +279,20 @@ async function generateCredentialPng({
         value: employee.nss,
         maxChars: 20,
         maxLines: 1,
-        valueFontSize: 24
+        valueFontSize: 31
       })}
 
       <line x1="602" y1="857" x2="602" y2="1325" stroke="#e19b05" stroke-width="3"/>
       <rect x="626" y="878" width="315" height="430" rx="24" fill="#ffffff" stroke="#711723" stroke-width="5"/>
       <image href="data:image/png;base64,${data.qr}" x="648" y="915" width="272" height="272" preserveAspectRatio="xMidYMid meet"/>
       <path d="M626 1220 H941 V1284 Q941 1308 917 1308 H650 Q626 1308 626 1284 Z" fill="url(#wineGrad)"/>
-      <text x="783.5" y="1269" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="800" fill="#ffffff">QR ASOCIADO</text>
+      <text x="783.5" y="1269" text-anchor="middle" font-family="DejaVu Sans, Liberation Sans, sans-serif" font-size="27" font-weight="800" fill="#ffffff">QR ASOCIADO</text>
 
       <rect x="10" y="1390" width="981" height="170" fill="url(#wineGrad)"/>
       <rect x="10" y="1388" width="981" height="8" fill="url(#goldGrad)"/>
       <image href="data:image/png;base64,${data.slogan}" x="196" y="1400" width="609" height="155" preserveAspectRatio="xMidYMid meet"/>
     </g>
 
-    <rect x="24" y="1592" width="280" height="84" rx="18" fill="#e7f4ed" stroke="#bfdcc8" stroke-width="2"/>
-    <text x="164" y="1645" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" fill="#155c39">Activo: Sí</text>
-    <rect x="326" y="1592" width="650" height="84" rx="18" fill="#ffffff" stroke="#e1e1e1" stroke-width="2"/>
-    <text x="651" y="1645" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="800" fill="#4b0f19">Fecha de consulta: ${escapeXml(generatedAt)}</text>
   </svg>`;
 
   return sharp(Buffer.from(svg))

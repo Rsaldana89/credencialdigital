@@ -1,0 +1,22 @@
+VALIDACION CREDENCIALES DIGITALES QR CHC v1.0.59
+================================================
+
+Cambios verificados:
+- La descarga PNG de la credencial termina en 1001 x 1570 px y ya no incluye la franja inferior de Activo/Fecha de consulta.
+- La vista web conserva la información de estado/fecha fuera de la imagen descargable.
+- La normalización numérica considera 01310 y 1310 como el mismo número para búsqueda.
+- La búsqueda de Empleados activos incorpora comparación numérica explícita cuando la consulta contiene solo dígitos.
+- getEmployeeByNumber conserva coincidencia exacta primero y usa equivalencia sin ceros como respaldo.
+- El selector de empleados al crear eventos aplica la misma equivalencia de ceros iniciales.
+- No hay cambios SQL ni migraciones requeridas.
+
+Pruebas ejecutadas:
+- npm run check: OK
+- npm test: OK
+  - antigüedad: OK
+  - regresiones v1.0.55: OK
+  - regresiones v1.0.56: OK
+  - resultado móvil v1.0.57: OK
+  - estructura XLSX v1.0.58: OK
+  - ajustes finales v1.0.59: OK
+- Render de prueba de credencial PNG: 1001 x 1570 px, sin franja inferior adicional.

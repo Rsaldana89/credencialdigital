@@ -1,19 +1,21 @@
 {
   "name": "credenciales-qr-chc",
-  "version": "1.0.58",
+  "version": "1.0.60",
   "description": "Aplicación web de credenciales digitales QR para Cremería Hermanos Coronel.",
   "main": "server.js",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check controllers/eventController.js && node --check utils/timeZone.js && node --check services/adminAuthService.js && node --check middleware/auth.js && node --check services/employeeService.js && node --check services/tenureService.js && node --check services/eventService.js && node --check services/eventExportService.js && node --check services/zipReader.js && node --check services/bulkPhotoImportService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check routes/eventRoutes.js && node --check public/js/credential.js && node --check public/js/events-new.js && node --check public/js/events-show.js && node --check tests/tenure.test.js && node --check tests/v1057-mobile-scan-result.test.js && node --check tests/v1058-xlsx-structure.test.js && node --check public/js/pwa.js && node --check public/sw.js",
+    "check": "node --check server.js && node --check controllers/adminController.js && node --check controllers/publicController.js && node --check controllers/eventController.js && node --check utils/timeZone.js && node --check services/adminAuthService.js && node --check middleware/auth.js && node --check services/employeeService.js && node --check services/tenureService.js && node --check services/eventService.js && node --check services/eventExportService.js && node --check services/zipReader.js && node --check services/bulkPhotoImportService.js && node --check services/photoService.js && node --check services/qrService.js && node --check services/credentialImageService.js && node --check routes/eventRoutes.js && node --check public/js/credential.js && node --check public/js/events-new.js && node --check public/js/events-show.js && node --check tests/tenure.test.js && node --check tests/v1057-mobile-scan-result.test.js && node --check tests/v1058-xlsx-structure.test.js && node --check public/js/pwa.js && node --check public/sw.js && node --check tests/v1059-final-polish.test.js && node --check tests/v1060-credential-download.test.js",
     "test:tenure": "node tests/tenure.test.js",
     "test:v1055": "node tests/v1055-regression.test.js",
     "test:v1056": "node tests/v1056-regression.test.js",
     "test:v1057": "node tests/v1057-mobile-scan-result.test.js",
     "test:v1058": "node tests/v1058-xlsx-structure.test.js",
-    "test": "npm run test:tenure && npm run test:v1055 && npm run test:v1056 && npm run test:v1057 && npm run test:v1058"
+    "test": "npm run test:tenure && npm run test:v1055 && npm run test:v1056 && npm run test:v1057 && npm run test:v1058 && npm run test:v1059 && npm run test:v1060",
+    "test:v1059": "node tests/v1059-final-polish.test.js",
+    "test:v1060": "node tests/v1060-credential-download.test.js"
   },
   "engines": {
     "node": ">=20.9.0"

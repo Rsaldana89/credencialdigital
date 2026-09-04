@@ -25,11 +25,24 @@
     countLabel.textContent = `${count} ${count === 1 ? 'seleccionado' : 'seleccionados'}`;
   }
 
+  function canonicalEmployeeNumber(value) {
+    const text = String(value || '').trim();
+    if (!/^\d+$/.test(text)) return null;
+    return text.replace(/^0+(?=\d)/, '');
+  }
+
   function applyFilter() {
-    const query = String(filterInput?.value || '').trim().toLocaleLowerCase('es-MX');
+    const queryRaw = String(filterInput?.value || '').trim();
+    const query = queryRaw.toLocaleLowerCase('es-MX');
+    const queryEmployeeNumber = canonicalEmployeeNumber(queryRaw);
+
     employeeOptions().forEach((option) => {
       const haystack = option.textContent.toLocaleLowerCase('es-MX');
-      option.hidden = Boolean(query) && !haystack.includes(query);
+      const optionEmployeeNumber = canonicalEmployeeNumber(option.dataset.employeeNumber);
+      const numericMatch = Boolean(
+        queryEmployeeNumber && optionEmployeeNumber && queryEmployeeNumber === optionEmployeeNumber
+      );
+      option.hidden = Boolean(query) && !numericMatch && !haystack.includes(query);
     });
   }
 

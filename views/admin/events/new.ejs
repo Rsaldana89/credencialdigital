@@ -103,7 +103,7 @@
 
       <div class="event-employee-picker" id="event-employee-picker">
         <% employees.forEach((employee) => { %>
-          <label class="event-employee-option">
+          <label class="event-employee-option" data-employee-number="<%= employee.employee_number %>">
             <input
               type="checkbox"
               name="selected_employees"

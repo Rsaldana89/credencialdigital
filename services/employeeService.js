@@ -259,15 +259,21 @@ async function listActiveEmployees(search = '') {
   let whereSearch = '';
 
   if (q) {
+    const numericSearch = /^\d+$/.test(q);
     whereSearch = `
       AND (
         p.employee_number LIKE ?
         OR COALESCE(p.full_name, '') LIKE ?
         OR COALESCE(p.puesto, '') LIKE ?
         OR COALESCE(p.department_name, '') LIKE ?
+        ${numericSearch ? `OR (
+          TRIM(p.employee_number) REGEXP '^[0-9]+$'
+          AND CAST(TRIM(p.employee_number) AS UNSIGNED) = CAST(? AS UNSIGNED)
+        )` : ''}
       )`;
     const searchValue = `%${q}%`;
     params.push(searchValue, searchValue, searchValue, searchValue);
+    if (numericSearch) params.push(q);
   }
 
   const [rows] = await pool.execute(
@@ -334,8 +340,7 @@ async function getEmployeeByNumber(rawEmployeeNumber) {
   const employeeNumber = normalizeEmployeeNumber(rawEmployeeNumber);
   if (!employeeNumber) return null;
 
-  const [rows] = await pool.execute(
-    `SELECT
+  const selectEmployeeSql = `SELECT
        p.employee_number AS employee_number,
        p.full_name,
        p.nss,
@@ -351,13 +356,33 @@ async function getEmployeeByNumber(rawEmployeeNumber) {
          SELECT 1 FROM employee_photos ep
          WHERE ep.employee_number = p.employee_number
        ) AS has_photo
-     FROM personal p
+     FROM personal p`;
+
+  // Primero respeta una coincidencia exacta, importante si algún identificador
+  // alfanumérico utiliza ceros como parte real de su clave.
+  const [exactRows] = await pool.execute(
+    `${selectEmployeeSql}
      WHERE p.employee_number = ?
      LIMIT 1`,
     [employeeNumber]
   );
+  if (exactRows[0]) return exactRows[0];
 
-  return rows[0] || null;
+  // Para números puramente numéricos, 01310 y 1310 deben apuntar al mismo
+  // empleado. Esta segunda búsqueda solo se ejecuta si no hubo coincidencia exacta.
+  if (/^\d+$/.test(employeeNumber)) {
+    const [numericRows] = await pool.execute(
+      `${selectEmployeeSql}
+       WHERE TRIM(p.employee_number) REGEXP '^[0-9]+$'
+         AND CAST(TRIM(p.employee_number) AS UNSIGNED) = CAST(? AS UNSIGNED)
+       ORDER BY CHAR_LENGTH(TRIM(p.employee_number)) DESC, p.employee_number
+       LIMIT 1`,
+      [employeeNumber]
+    );
+    return numericRows[0] || null;
+  }
+
+  return null;
 }
 
 async function getActiveQrByEmployee(rawEmployeeNumber) {

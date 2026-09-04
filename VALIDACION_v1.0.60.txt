@@ -1,0 +1,15 @@
+VALIDACION v1.0.60
+==================
+
+Objetivo:
+Corregir la credencial PNG cuando Railway/Sharp no dispone de las mismas fuentes y los datos dinamicos aparecen como cuadros o quedan ilegibles.
+
+Validaciones realizadas:
+- Sintaxis completa del proyecto con npm run check: OK.
+- Prueba estatica de descarga PNG en navegador: OK.
+- El boton de descarga usa Canvas para repintar Nombre, Numero de empleado, Puesto, Fecha de Ingreso/Reingreso, Antiguedad, NSS y QR ASOCIADO.
+- La descarga conserva la ruta del servidor como fallback.
+- El generador del servidor usa DejaVu Sans / Liberation Sans / sans-serif como respaldo.
+- Se incremento el tamano de tipografia del PNG para mejorar lectura al compartir por WhatsApp/Teams.
+- Se conserva el recorte de v1.0.59 sin los cuadros inferiores de Activo/Fecha de consulta.
+- No requiere migracion SQL.

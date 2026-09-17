@@ -1,4 +1,14 @@
-# Credenciales Digitales QR CHC - v1.0.57
+# Credenciales Digitales QR CHC - v1.0.63
+
+## v1.0.63 - Descargar QR con ID
+
+- Agrega en **Admin > Empleados** el botón **Descargar QR con ID** junto a la descarga normal de QR.
+- Genera un ZIP alterno donde cada PNG conserva el QR original y añade debajo el número de empleado centrado.
+- Los IDs numéricos se muestran con un mínimo de 5 dígitos (`4986` -> `04986`).
+- El paquete QR original permanece sin cambios.
+- No requiere cambios SQL.
+
+Ver `AJUSTE_v1.0.63_QR_CON_ID.md`.
 
 ## Hotfix v1.0.56
 

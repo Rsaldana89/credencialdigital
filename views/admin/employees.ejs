@@ -14,6 +14,10 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button class="button button-primary" type="submit">Descargar paquete QR</button>
     </form>
+    <form method="post" action="/admin/empleados/descargar-qrs-con-id">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="button button-primary" type="submit">Descargar QR con ID</button>
+    </form>
   </div>
 </section>
 

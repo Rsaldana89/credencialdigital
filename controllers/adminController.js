@@ -41,6 +41,10 @@ function getQrFilename(employeeNumber, qrId) {
   return `${getSafeEmployeeNumber(employeeNumber, `QR_${qrId || 'empleado'}`)}_QR.png`;
 }
 
+function getQrWithIdFilename(employeeNumber, qrId) {
+  return `${getSafeEmployeeNumber(employeeNumber, `QR_${qrId || 'empleado'}`)}_QR_ID.png`;
+}
+
 async function buildQrFiles(employees, batchSize = 20) {
   const files = [];
 
@@ -54,6 +58,33 @@ async function buildQrFiles(employees, batchSize = 20) {
       return {
         buffer,
         filename: getQrFilename(employeeNumber, employee.qr_id)
+      };
+    }));
+
+    files.push(...generated.filter(Boolean));
+  }
+
+  return files;
+}
+
+async function buildQrWithIdFiles(employees, batchSize = 20) {
+  const files = [];
+
+  for (let index = 0; index < employees.length; index += batchSize) {
+    const batch = employees.slice(index, index + batchSize);
+    const generated = await Promise.all(batch.map(async (employee) => {
+      const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
+      if (!employeeNumber || !employee.qr_token) return null;
+
+      const displayEmployeeNumber = employeeService.formatEmployeeNumber(employee.employee_number, 5);
+      const buffer = await qrService.generatePngWithEmployeeId(
+        employee.qr_token,
+        displayEmployeeNumber
+      );
+
+      return {
+        buffer,
+        filename: getQrWithIdFilename(employeeNumber, employee.qr_id)
       };
     }));
 
@@ -545,6 +576,71 @@ async function downloadQrPackage(req, res, next) {
 }
 
 
+async function downloadQrWithIdPackage(req, res, next) {
+  try {
+    // Mantiene intacto el paquete QR original y prepara una segunda variante
+    // con el numero de empleado centrado debajo de cada codigo.
+    await employeeService.generateMissingTokens();
+    const employeesWithQr = await employeeService.listActiveEmployeesWithQr();
+
+    if (!employeesWithQr.length) {
+      setFlash(req, 'danger', 'No hay códigos QR disponibles para descargar.');
+      return res.redirect('/admin/empleados');
+    }
+
+    const qrFiles = await buildQrWithIdFiles(employeesWithQr);
+    if (!qrFiles.length) {
+      setFlash(req, 'danger', 'No fue posible preparar los códigos QR con ID.');
+      return res.redirect('/admin/empleados');
+    }
+
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const packageFilename = `QRS_CON_ID_EMPLEADOS_ACTIVOS_${dateStamp}.zip`;
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    archive.on('warning', (error) => {
+      if (error.code !== 'ENOENT') {
+        console.error('Advertencia al preparar el paquete QR con ID:', error);
+      }
+    });
+    archive.on('error', (error) => {
+      if (!res.destroyed) res.destroy(error);
+    });
+
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${packageFilename}"`,
+      'Cache-Control': 'no-store'
+    });
+
+    archive.pipe(res);
+    qrFiles.forEach((file) => {
+      archive.append(file.buffer, { name: file.filename });
+    });
+    archive.append(
+      Buffer.from(
+        `Paquete de códigos QR de empleados activos con ID visible.\r\n` +
+        `Generado: ${new Date().toLocaleString('es-MX')}\r\n` +
+        `Total de archivos QR: ${qrFiles.length}\r\n` +
+        `El ID se muestra centrado debajo del QR y con mínimo 5 dígitos.\r\n` +
+        `Formato de nombre: NUMERO_EMPLEADO_QR_ID.png\r\n`,
+        'utf8'
+      ),
+      { name: 'LEEME.txt' }
+    );
+
+    await archive.finalize();
+    return undefined;
+  } catch (error) {
+    if (res.headersSent) {
+      if (!res.destroyed) res.destroy(error);
+      return undefined;
+    }
+    return next(error);
+  }
+}
+
+
 async function downloadCredentialPackage(req, res, next) {
   try {
     await employeeService.generateMissingTokens();
@@ -643,5 +739,6 @@ module.exports = {
   deactivateInactive,
   downloadQr,
   downloadQrPackage,
+  downloadQrWithIdPackage,
   downloadCredentialPackage
 };

@@ -67,31 +67,20 @@ async function buildQrFiles(employees, batchSize = 20) {
   return files;
 }
 
-async function buildQrWithIdFiles(employees, batchSize = 20) {
-  const files = [];
+async function buildQrWithIdFile(employee) {
+  const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
+  if (!employeeNumber || !employee.qr_token) return null;
 
-  for (let index = 0; index < employees.length; index += batchSize) {
-    const batch = employees.slice(index, index + batchSize);
-    const generated = await Promise.all(batch.map(async (employee) => {
-      const employeeNumber = employeeService.normalizeEmployeeNumber(employee.employee_number);
-      if (!employeeNumber || !employee.qr_token) return null;
+  const displayEmployeeNumber = employeeService.formatEmployeeNumber(employee.employee_number, 5);
+  const buffer = await qrService.generatePngWithEmployeeId(
+    employee.qr_token,
+    displayEmployeeNumber
+  );
 
-      const displayEmployeeNumber = employeeService.formatEmployeeNumber(employee.employee_number, 5);
-      const buffer = await qrService.generatePngWithEmployeeId(
-        employee.qr_token,
-        displayEmployeeNumber
-      );
-
-      return {
-        buffer,
-        filename: getQrWithIdFilename(employeeNumber, employee.qr_id)
-      };
-    }));
-
-    files.push(...generated.filter(Boolean));
-  }
-
-  return files;
+  return {
+    buffer,
+    filename: getQrWithIdFilename(employeeNumber, employee.qr_id)
+  };
 }
 
 let credentialAssetsPromise = null;
@@ -578,8 +567,9 @@ async function downloadQrPackage(req, res, next) {
 
 async function downloadQrWithIdPackage(req, res, next) {
   try {
-    // Mantiene intacto el paquete QR original y prepara una segunda variante
-    // con el numero de empleado centrado debajo de cada codigo.
+    // v1.0.64: el ZIP se abre antes de generar todos los PNG y los archivos
+    // se agregan conforme terminan. Esto reduce memoria, CPU y el tiempo en
+    // el que el navegador permanece esperando sin recibir respuesta.
     await employeeService.generateMissingTokens();
     const employeesWithQr = await employeeService.listActiveEmployeesWithQr();
 
@@ -588,15 +578,16 @@ async function downloadQrWithIdPackage(req, res, next) {
       return res.redirect('/admin/empleados');
     }
 
-    const qrFiles = await buildQrWithIdFiles(employeesWithQr);
-    if (!qrFiles.length) {
-      setFlash(req, 'danger', 'No fue posible preparar los códigos QR con ID.');
-      return res.redirect('/admin/empleados');
-    }
-
     const dateStamp = new Date().toISOString().slice(0, 10);
     const packageFilename = `QRS_CON_ID_EMPLEADOS_ACTIVOS_${dateStamp}.zip`;
-    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    // Los PNG ya están comprimidos. store:true evita volver a aplicar DEFLATE
+    // a cientos de imágenes y reduce considerablemente el uso de CPU.
+    const archive = archiver('zip', { store: true });
+    const failures = [];
+    let generatedCount = 0;
+    let clientAborted = false;
+    const startedAt = Date.now();
 
     archive.on('warning', (error) => {
       if (error.code !== 'ENOENT') {
@@ -610,26 +601,68 @@ async function downloadQrWithIdPackage(req, res, next) {
     res.set({
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename="${packageFilename}"`,
-      'Cache-Control': 'no-store'
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff'
     });
 
     archive.pipe(res);
-    qrFiles.forEach((file) => {
-      archive.append(file.buffer, { name: file.filename });
+    // Envía los encabezados enseguida para que el navegador reconozca la
+    // descarga mientras el servidor continúa generando los QR.
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+    // Si el usuario cancela/repite la descarga, dejamos de gastar CPU en una
+    // petición que ya no tiene cliente. Esto también limita el efecto de 499.
+    res.once('close', () => {
+      if (!res.writableEnded) {
+        clientAborted = true;
+        try { archive.abort(); } catch (_) { /* ya estaba cerrado */ }
+      }
     });
+
+    // Lotes pequeños evitan saturar los hilos de Sharp en Railway.
+    const batchSize = 4;
+    for (let index = 0; index < employeesWithQr.length; index += batchSize) {
+      if (clientAborted) return undefined;
+
+      const batch = employeesWithQr.slice(index, index + batchSize);
+      const generated = await Promise.all(batch.map(async (employee) => {
+        try {
+          return await buildQrWithIdFile(employee);
+        } catch (error) {
+          failures.push(`${employee.employee_number || 'SIN_NUMERO'}: ${error.message || 'Error desconocido'}`);
+          return null;
+        }
+      }));
+
+      if (clientAborted) return undefined;
+
+      for (const file of generated.filter(Boolean)) {
+        archive.append(file.buffer, { name: file.filename });
+        generatedCount += 1;
+      }
+    }
+
     archive.append(
       Buffer.from(
         `Paquete de códigos QR de empleados activos con ID visible.\r\n` +
         `Generado: ${new Date().toLocaleString('es-MX')}\r\n` +
-        `Total de archivos QR: ${qrFiles.length}\r\n` +
+        `Total de archivos QR: ${generatedCount}\r\n` +
         `El ID se muestra centrado debajo del QR y con mínimo 5 dígitos.\r\n` +
-        `Formato de nombre: NUMERO_EMPLEADO_QR_ID.png\r\n`,
+        `Formato de nombre: NUMERO_EMPLEADO_QR_ID.png\r\n` +
+        (failures.length ? `\r\nNo fue posible generar ${failures.length} archivo(s). Consulta ERRORES.txt.\r\n` : ''),
         'utf8'
       ),
       { name: 'LEEME.txt' }
     );
 
+    if (failures.length) {
+      archive.append(Buffer.from(failures.join('\r\n'), 'utf8'), { name: 'ERRORES.txt' });
+    }
+
     await archive.finalize();
+    console.info(
+      `[QR con ID] ${generatedCount}/${employeesWithQr.length} archivos preparados en ${Date.now() - startedAt} ms`
+    );
     return undefined;
   } catch (error) {
     if (res.headersSent) {

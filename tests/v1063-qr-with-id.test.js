@@ -14,7 +14,7 @@ const qrService = fs.readFileSync(path.join(root, 'services', 'qrService.js'), '
 assert(routes.includes('/empleados/descargar-qrs-con-id'));
 assert(routes.includes('adminController.downloadQrWithIdPackage'));
 assert(controller.includes('async function downloadQrWithIdPackage'));
-assert(controller.includes('buildQrWithIdFiles'));
+assert(controller.includes('buildQrWithIdFile'));
 assert(controller.includes('formatEmployeeNumber(employee.employee_number, 5)'));
 assert(controller.includes('QRS_CON_ID_EMPLEADOS_ACTIVOS_'));
 assert(employeesView.includes('Descargar QR con ID'));

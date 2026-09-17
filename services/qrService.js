@@ -74,7 +74,7 @@ async function generatePngWithEmployeeId(token, employeeId) {
       background: '#FFFFFF'
     })
     .composite([{ input: labelSvg, left: 0, top: QR_PNG_WIDTH }])
-    .png({ compressionLevel: 9 })
+    .png({ compressionLevel: 4 })
     .toBuffer();
 }
 

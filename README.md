@@ -1,4 +1,15 @@
-# Credenciales Digitales QR CHC - v1.0.63
+# Credenciales Digitales QR CHC - v1.0.64
+
+## v1.0.64 - Optimización de descarga QR con ID
+
+- El paquete **Descargar QR con ID** ahora empieza a responder antes de terminar de generar todos los PNG.
+- Los QR se procesan en lotes pequeños de 4 y se agregan al ZIP conforme están listos.
+- El ZIP usa modo `store` porque los PNG ya están comprimidos, evitando recompresión innecesaria.
+- La compresión PNG de la franja con ID baja de nivel 9 a 4; no cambia la imagen visible ni el contenido del QR, solo reduce CPU.
+- Si el navegador cancela la descarga, el servidor detiene el procesamiento restante para no desperdiciar recursos.
+- No requiere cambios SQL ni nuevas variables de entorno.
+
+Ver `AJUSTE_v1.0.64_OPTIMIZACION_QR_ID.md`.
 
 ## v1.0.63 - Descargar QR con ID
 

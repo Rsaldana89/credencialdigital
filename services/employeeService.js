@@ -313,6 +313,7 @@ async function listActiveEmployeesWithQr() {
   const [rows] = await pool.query(
     `SELECT DISTINCT
        p.employee_number AS employee_number,
+       p.full_name,
        t.id AS qr_id,
        t.qr_token
      FROM personal p

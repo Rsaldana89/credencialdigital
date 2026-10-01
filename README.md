@@ -1,4 +1,11 @@
-# Credenciales Digitales QR CHC - v1.0.64
+# Credenciales Digitales QR CHC - v1.0.65
+
+## v1.0.65 - Descargar QR con nombre completo e ID
+
+- Agrega una tercera descarga masiva en **Admin > Empleados**: **Descargar QR con nombre**.
+- Cada PNG muestra **nombre completo arriba**, **QR al centro** e **ID de 5 dígitos abajo**.
+- Mantiene el procesamiento optimizado por streaming de la v1.0.64.
+- No requiere cambios SQL.
 
 ## v1.0.64 - Optimización de descarga QR con ID
 
